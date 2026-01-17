@@ -3,10 +3,10 @@ spring:
     name: "booklog" # "booklog"
 
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL JDBC ???? ??? ??
-    url: jdbc:mysql://localhost:3306/booklog_private # jdbc:mysql://localhost:3306/{???????}
-    username: root # MySQL ?? ??
-    password: dkTldlqkf1! # MySQL ????
+    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL JDBC 드라이버 클래스 이름
+    url: ${DB_URL} # jdbc:mysql://localhost:3306/{데이터베이스명}
+    username: ${DB_USER} # MySQL 유저 이름
+    password: ${DB_PW} # MySQL 비밀번호
 
   jpa:
     database: mysql # ??? ?????? ?? ?? (MySQL)
