@@ -25,13 +25,33 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	compileOnly 'org.projectlombok:lombok'
+	// Spring
+	implementation 'org.springframework.boot:spring-boot-starter-web'       // MVC
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'  // JPA
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'   // WebClient용(reactor)
+
+	// DB
 	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	// (추천) application.yml 자동완성
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'io.projectreactor:reactor-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// Swagger (Spring MVC)
+	// ✅ Boot 3.5.x면 springdoc도 최신 라인으로 맞추는 게 안전
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5'
+	implementation "org.apache.commons:commons-lang3:3.20.0"
+
 }
 
 tasks.named('test') {
