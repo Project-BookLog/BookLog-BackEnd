@@ -139,8 +139,13 @@ public class Books extends BaseEntity {
     }
 
     public void replaceBookAuthors(List<BookAuthors> newMappings) {
+        // ✅ orphan removal을 위해 기존 매핑 clear
         this.bookAuthors.clear();
-        for (BookAuthors m : newMappings) addBookAuthor(m);
+
+        // ✅ 새로운 매핑 추가
+        for (BookAuthors m : newMappings) {
+            addBookAuthor(m);
+        }
     }
 
     public void addBookGenre(BookGenres bookGenre) {

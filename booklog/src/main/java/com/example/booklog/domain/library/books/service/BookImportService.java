@@ -14,11 +14,11 @@ import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.books.service.client.KakaoBookClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +32,7 @@ public class BookImportService {
     private final AuthorsRepository authorsRepository;
     private final BookSearchConverter bookSearchConverter;
     private final ObjectMapper objectMapper; // ✅ Spring Bean 주입
+    private final EntityManager entityManager; // ✅ orphan removal 즉시 처리용
 
     /**
      * 카카오 도서 검색 -> books/authors/book_authors 업서트 -> 검색 응답 반환
@@ -112,9 +113,18 @@ public class BookImportService {
                         .build());
             }
 
+            // ✅ 기존 매핑 삭제를 먼저 DB에 반영
+            if (book.getId() != null) {
+                book.getBookAuthors().clear();
+                booksRepository.save(book);
+                entityManager.flush();
+            }
+
+            // ✅ 새로운 매핑 추가
             book.replaceBookAuthors(mappings);
 
             Books saved = booksRepository.save(book);
+
             items.add(bookSearchConverter.toResponse(saved, doc));
         }
 
