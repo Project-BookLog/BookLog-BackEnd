@@ -8,6 +8,12 @@ spring:
     username: ${DB_USER} # MySQL 유저 이름
     password: ${DB_PW} # MySQL 비밀번호
 
+  servlet:
+    multipart:
+      enabled: true
+      maxFileSize: 200MB
+      maxRequestSize: 300MB
+
   jpa:
     database: mysql # ??? ?????? ?? ?? (MySQL)
     # database-platform: org.hibernate.dialect.MySQLDialect # Hibernate?? ??? MySQL ??(dialect)
