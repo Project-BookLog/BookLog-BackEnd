@@ -4,7 +4,7 @@ public interface PostImageView {
 
     Long getPostId();
 
-    Long getImageId();
+    Long getId();
     String getImageUrl();
     Integer getDisplayOrder();
 }

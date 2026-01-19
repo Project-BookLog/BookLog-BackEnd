@@ -2,12 +2,14 @@ package com.example.booklog.domain.booklog.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Builder;
 import lombok.Getter;
 
 
 import java.util.List;
 
 @Getter
+@Builder
 public class BooklogPostCreateRequest {
 
     @NotNull
@@ -20,5 +22,5 @@ public class BooklogPostCreateRequest {
 
     private List<Long> tagIds;
 
-    private List<Long> imageIds;
+    private List<String> imageUrls;
 }

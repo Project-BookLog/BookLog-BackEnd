@@ -2,7 +2,6 @@ package com.example.booklog.domain.booklog.converter;
 
 
 import com.example.booklog.domain.booklog.dto.commonDto.*;
-import com.example.booklog.domain.booklog.entity.BooklogPostImage;
 import com.example.booklog.domain.booklog.view.AuthorView;
 import com.example.booklog.domain.booklog.view.BookView;
 import com.example.booklog.domain.booklog.view.PostImageView;
@@ -62,7 +61,7 @@ public class CommonDtoConverter {
     public PostImageResponse toPostImage(PostImageView v) {
         if (v == null) return null;
         return PostImageResponse.builder()
-                .imageId(v.getImageId())
+                .imageId(v.getId())
                 .imageUrl(v.getImageUrl())
                 .order(v.getDisplayOrder() == null ? 0 : v.getDisplayOrder())
                 .build();
