@@ -40,7 +40,7 @@ jobs:
         run: |
           mkdir -p deploy/.ebextensions
           cp booklog/build/libs/booklog.jar deploy/application.jar
-          cp -r booklog/.ebextensions_dev/* deploy/.ebextensions/
+          cp -r .ebextensions_dev/* deploy/.ebextensions/
           echo 'web: java -jar application.jar' > deploy/Procfile
           cd deploy && zip -r deploy.zip .
 
