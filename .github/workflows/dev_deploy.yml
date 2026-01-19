@@ -55,3 +55,4 @@ jobs:
           region: ap-northeast-2               # 리전 확인 (보통 서울)
           deployment_package: deploy/deploy.zip
           wait_for_deployment: true
+          use_existing_version_if_available: true
