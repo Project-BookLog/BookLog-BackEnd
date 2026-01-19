@@ -38,9 +38,10 @@ jobs:
       # 4. 배포 패키지 생성 (EB용)
       - name: Generate deployment package
         run: |
-          mkdir -p deploy
+          mkdir -p deploy/.ebextensions
           cp booklog/build/libs/booklog.jar deploy/application.jar
-          echo 'web: . /opt/elasticbeanstalk/deployment/env && java -jar application.jar' > deploy/Procfile
+          cp -r booklog/.ebextensions_dev/* deploy/.ebextensions/
+          echo 'web: java -jar application.jar' > deploy/Procfile
           cd deploy && zip -r deploy.zip .
 
       # 5. Beanstalk 배포
