@@ -5,10 +5,10 @@ import com.example.booklog.domain.library.books.dto.BookSearchItemResponse;
 import com.example.booklog.domain.library.books.dto.BookSearchResponse;
 import com.example.booklog.domain.library.books.dto.KakaoBookSearchResponse;
 import com.example.booklog.domain.library.books.entity.Books;
-import com.example.booklog.domain.library.books.entity.Books.BookSource;
-import com.example.booklog.domain.library.books.entity.common.AuthorRole;
-import com.example.booklog.domain.library.books.entity.common.Authors;
-import com.example.booklog.domain.library.books.entity.mapping.BookAuthors;
+import com.example.booklog.domain.library.books.entity.BookSource;
+import com.example.booklog.domain.library.books.entity.AuthorRole;
+import com.example.booklog.domain.library.books.entity.Authors;
+import com.example.booklog.domain.library.books.entity.BookAuthors;
 import com.example.booklog.domain.library.books.repository.AuthorsRepository;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.books.service.client.KakaoBookClient;
@@ -94,9 +94,10 @@ public class BookImportService {
                 Authors author = findOrCreateAuthorOrNull(name);
                 if (author == null) continue;
                 mappings.add(BookAuthors.builder()
+                        .book(book)
                         .author(author)
                         .role(AuthorRole.AUTHOR)
-                        .sortOrder(order++)
+                        .displayOrder(order++)
                         .build());
             }
 
@@ -107,9 +108,10 @@ public class BookImportService {
                 Authors author = findOrCreateAuthorOrNull(name);
                 if (author == null) continue;
                 mappings.add(BookAuthors.builder()
+                        .book(book)
                         .author(author)
                         .role(AuthorRole.TRANSLATOR)
-                        .sortOrder(tOrder++)
+                        .displayOrder(tOrder++)
                         .build());
             }
 
@@ -143,8 +145,7 @@ public class BookImportService {
 
         String url = normalize(kakaoUrl);
         if (!url.isBlank()) {
-            // ✅ BooksRepository에 findByKakaoUrl 필요
-            return booksRepository.findByKakaoUrl(url)
+            return booksRepository.findByDetailUrl(url)
                     .orElseGet(() -> Books.builder().source(BookSource.KAKAO).build());
         }
 
@@ -160,7 +161,9 @@ public class BookImportService {
         if (normalized.isBlank()) return null;
 
         return authorsRepository.findByName(normalized)
-                .orElseGet(() -> authorsRepository.save(Authors.ofName(normalized)));
+                .orElseGet(() -> authorsRepository.save(
+                        Authors.builder().name(normalized).build()
+                ));
     }
 
     private String safe(String s) {

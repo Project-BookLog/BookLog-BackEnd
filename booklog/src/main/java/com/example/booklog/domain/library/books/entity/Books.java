@@ -1,65 +1,40 @@
 package com.example.booklog.domain.library.books.entity;
 
-import com.example.booklog.domain.library.books.entity.mapping.BookAuthors;
-import com.example.booklog.domain.library.books.entity.mapping.BookGenres;
 import com.example.booklog.global.common.BaseEntity;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(
-        name = "books",
-        indexes = {
-                @Index(name = "idx_books_isbn13", columnList = "isbn13"),
-                @Index(name = "idx_books_title", columnList = "title"),
-                @Index(name = "idx_books_kakao_url", columnList = "kakao_url")
-        },
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_books_isbn13", columnNames = {"isbn13"})
-                // isbn13 없는 경우 중복 방지하려면 아래도 추천
-                // , @UniqueConstraint(name = "uk_books_kakao_url", columnNames = {"kakao_url"})
-        }
-)
+@Table(name = "books")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Builder
 public class Books extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "book_id")
+    @Column(name = "id")
     private Long id;
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "title", length = 255, nullable = false)
     private String title;
 
-    @Lob
-    private String contents;
+    @Column(name = "description", columnDefinition = "TEXT") //기존 contents(책 소개/요약 표시)를 description으로 바꿈
+    private String description;
 
-    @Column(name = "thumbnail_url", length = 500)
-    private String thumbnailUrl;
+    @Column(name = "detail_url", length = 500) //kako_url(책 상세 링크)입니다
+    private String detailUrl;
 
-    @Column(name = "kakao_url", length = 500)
-    private String kakaoUrl;
-
-    // ✅ (ERD가 100이면 100으로) / 너가 200 유지 원하면 200으로 두면 됨
-    @Column(name = "publisher_name", length = 100)
-    private String publisherName;
-
-    // ✅ datetime 그대로: DATETIME
-    @Column(name = "published_at")
-    private LocalDateTime publishedAt;
-
-    @Column(name = "isbn_raw", length = 40)
-    private String isbnRaw;
+    @Column(name = "isbn", length = 40) //isbn_raw(원문 보관용)
+    private String isbn;
 
     @Column(name = "isbn10", length = 20)
     private String isbn10;
@@ -67,91 +42,113 @@ public class Books extends BaseEntity {
     @Column(name = "isbn13", length = 20)
     private String isbn13;
 
-    // ✅ 여기 3개는 “업데이트 ERD에 존재하면 유지”, 없으면 삭제해야 함
+    @Column(name = "published_date")
+    private LocalDateTime publishedDate;
+
+    @Column(name = "thumbnail_url", length = 500)
+    private String thumbnailUrl;
+
+    @Column(name = "status", length = 50)
+    private String status; // 정상/품절/절판
+
     @Column(name = "price")
     private Integer price;
 
     @Column(name = "sale_price")
     private Integer salePrice;
 
-    @Column(name = "sale_status", length = 50)
-    private String saleStatus;
+    @Column(name = "publisher_id")
+    private Long publisherId;
+
+    @Column(name = "publisher_name", length = 255)
+    private String publisherName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "source", nullable = false, length = 30)
-    private BookSource source;
+    @Column(name = "source", length = 30, nullable = false)
+    private BookSource source = BookSource.KAKAO;
 
-    // ✅ ERD가 JSON이면 아래처럼(문자열로 저장하지만 MySQL json 컬럼)
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "raw_json", columnDefinition = "json")
-    private String rawJson;
+    @Column(name = "raw_data", columnDefinition = "JSON") //카카오 응답 원본 보관
+    private String rawData;
 
-    @Column(name = "synced_at", nullable = false)
-    private LocalDateTime syncedAt;
+    @Column(name = "last_synced_at", nullable = false) //캐시 갱신 시점
+    private LocalDateTime lastSyncedAt;
 
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
     private List<BookAuthors> bookAuthors = new ArrayList<>();
 
-    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<BookGenres> bookGenres = new ArrayList<>();
-
-    @PrePersist
-    void prePersist() {
-        if (syncedAt == null) syncedAt = LocalDateTime.now();
-    }
-
-    public void updateBasicInfo(
-            String title,
-            String contents,
-            String thumbnailUrl,
-            String kakaoUrl,
-            String publisherName,
-            LocalDateTime publishedAt,
-            String isbnRaw,
-            String isbn10,
-            String isbn13,
-            Integer price,
-            Integer salePrice,
-            String saleStatus,
-            String rawJson
-    ) {
+    @Builder
+    public Books(String title, String description, String detailUrl,
+                 String isbn, String isbn10, String isbn13,
+                 LocalDateTime publishedDate, String thumbnailUrl,
+                 String status, Integer price, Integer salePrice,
+                 Long publisherId, String publisherName, BookSource source, String rawData) {
         this.title = title;
-        this.contents = contents;
-        this.thumbnailUrl = thumbnailUrl;
-        this.kakaoUrl = kakaoUrl;
-        this.publisherName = publisherName;
-        this.publishedAt = publishedAt;
-        this.isbnRaw = isbnRaw;
+        this.description = description;
+        this.detailUrl = detailUrl;
+        this.isbn = isbn;
         this.isbn10 = isbn10;
         this.isbn13 = isbn13;
+        this.publishedDate = publishedDate;
+        this.thumbnailUrl = thumbnailUrl;
+        this.status = status;
         this.price = price;
         this.salePrice = salePrice;
-        this.saleStatus = saleStatus;
-        this.rawJson = rawJson;
-        this.syncedAt = LocalDateTime.now();
+        this.publisherId = publisherId;
+        this.publisherName = publisherName;
+        this.source = source != null ? source : BookSource.KAKAO;
+        this.rawData = rawData;
+        this.lastSyncedAt = LocalDateTime.now();
     }
 
-    public void addBookAuthor(BookAuthors bookAuthor) {
-        this.bookAuthors.add(bookAuthor);
-        bookAuthor.setBook(this);
+    public LocalDateTime getPublishedAt() {
+        return this.publishedDate;
+    }
+
+    public void updateSyncTime() {
+        this.lastSyncedAt = LocalDateTime.now();
+    }
+
+    public void updateBookInfo(String title, String description, String thumbnailUrl,
+                               Integer price, Integer salePrice, String status) {
+        this.title = title;
+        this.description = description;
+        this.thumbnailUrl = thumbnailUrl;
+        this.price = price;
+        this.salePrice = salePrice;
+        this.status = status;
+        this.lastSyncedAt = LocalDateTime.now();
+    }
+
+    public void updateBasicInfo(String title, String description, String thumbnailUrl,
+                                String detailUrl, String publisher, LocalDateTime publishedDate,
+                                String isbn, String isbn10, String isbn13,
+                                Integer price, Integer salePrice, String status, String rawData) {
+        this.title = title;
+        this.description = description;
+        this.thumbnailUrl = thumbnailUrl;
+        this.detailUrl = detailUrl;
+        this.isbn = isbn;
+        this.isbn10 = isbn10;
+        this.isbn13 = isbn13;
+        this.publishedDate = publishedDate;
+        this.price = price;
+        this.salePrice = salePrice;
+        this.status = status;
+        this.rawData = rawData;
+        this.lastSyncedAt = LocalDateTime.now();
+    }
+
+    public List<BookAuthors> getBookAuthors() {
+        return bookAuthors;
     }
 
     public void replaceBookAuthors(List<BookAuthors> newMappings) {
-        // ✅ orphan removal을 위해 기존 매핑 clear
         this.bookAuthors.clear();
-
-        // ✅ 새로운 매핑 추가
-        for (BookAuthors m : newMappings) {
-            addBookAuthor(m);
+        for (BookAuthors mapping : newMappings) {
+            mapping.setBook(this);
+            this.bookAuthors.add(mapping);
         }
     }
-
-    public void addBookGenre(BookGenres bookGenre) {
-        this.bookGenres.add(bookGenre);
-        bookGenre.setBook(this);
-    }
-
-    public enum BookSource { KAKAO }
 }
+
