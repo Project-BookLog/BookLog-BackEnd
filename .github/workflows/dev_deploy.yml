@@ -40,7 +40,7 @@ jobs:
         run: |
           mkdir -p deploy
           cp booklog/build/libs/booklog.jar deploy/application.jar
-          echo "web: java -jar application.jar" > deploy/Procfile
+          echo 'web: . /opt/elasticbeanstalk/deployment/env && java -jar application.jar' > deploy/Procfile
           cd deploy && zip -r deploy.zip .
 
       # 5. Beanstalk 배포
