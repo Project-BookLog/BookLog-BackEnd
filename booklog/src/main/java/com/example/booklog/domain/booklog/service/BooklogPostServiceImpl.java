@@ -1,8 +1,6 @@
 package com.example.booklog.domain.booklog.service;
 
-import com.example.booklog.domain.booklog.contract.tag.TagCategory;
-import com.example.booklog.domain.booklog.contract.tag.TagDomainClient;
-import com.example.booklog.domain.booklog.contract.tag.TagInfo;
+import com.example.booklog.domain.tags.entity.TagCategory;
 import com.example.booklog.domain.booklog.converter.BooklogDetailConverter;
 import com.example.booklog.domain.booklog.converter.BooklogFeedConverter;
 import com.example.booklog.domain.booklog.converter.BooklogPostConverter;
@@ -14,6 +12,7 @@ import com.example.booklog.domain.booklog.repository.BooklogPostImageRepository;
 import com.example.booklog.domain.booklog.repository.BooklogPostRepository;
 import com.example.booklog.domain.booklog.repository.BooklogPostTagRepository;
 import com.example.booklog.domain.booklog.repository.ViewLogRepository;
+import com.example.booklog.domain.tags.repository.TagsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,6 +24,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BooklogPostServiceImpl implements BooklogPostService {
 
+    private final TagsRepository tagsRepository;
     private final BooklogPostRepository postRepository;
     private final BooklogPostImageRepository postImageRepository;
     private final BooklogPostTagRepository postTagRepository;
@@ -32,11 +32,11 @@ public class BooklogPostServiceImpl implements BooklogPostService {
 
     private final BooklogReadFacade booklogReadFacade;
 
-    private final TagDomainClient tagDomainClient;
-
     private final BooklogPostConverter  postConverter;
     private final BooklogFeedConverter feedConverter;
     private final BooklogDetailConverter detailConverter;
+
+
 
 
 
@@ -74,20 +74,31 @@ public class BooklogPostServiceImpl implements BooklogPostService {
 
     private void validateBooklogTagRules(List<Long> tagIds) {
         // 태그 사실 조회(존재/활성/카테고리)
-        List<TagInfo> tagInfos = tagDomainClient.findTagInfosByIds(tagIds);
-
-        // 활성화 검증 (선택)
-        if (tagInfos.stream().anyMatch(t -> !t.active())) {
-            throw new IllegalArgumentException("비활성 태그가 포함되어 있습니다.");
+        if (tagIds == null || tagIds.isEmpty()) {
+            throw new IllegalArgumentException("태그는 최소 1개 이상 선택해야 합니다.");
         }
 
-        long mood = tagInfos.stream().filter(t -> t.category() == TagCategory.MOOD).count();
-        long style = tagInfos.stream().filter(t -> t.category() == TagCategory.STYLE).count();
-        long immersion = tagInfos.stream().filter(t -> t.category() == TagCategory.IMMERSION).count();
+        var tags = tagsRepository.findAllById(tagIds);
 
-        if (mood < 1 || mood > 2) throw new IllegalArgumentException("MOOD 태그는 1~2개 선택해야 합니다.");
-        if (style < 1 || style > 2) throw new IllegalArgumentException("STYLE 태그는 1~2개 선택해야 합니다.");
-        if (immersion != 1) throw new IllegalArgumentException("IMMERSION 태그는 반드시 1개 선택해야 합니다.");
+        if (tags.size() != tagIds.size()) {
+            throw new IllegalArgumentException("존재하지 않는 태그가 포함되어 있습니다.");
+        }
+
+        long moodCount = tags.stream()
+                .filter(t -> t.getCategory() == TagCategory.MOOD)
+                .count();
+
+        long styleCount = tags.stream()
+                .filter(t -> t.getCategory() == TagCategory.STYLE)
+                .count();
+
+        long immersionCount = tags.stream()
+                .filter(t -> t.getCategory() == TagCategory.IMMERSION)
+                .count();
+
+        if (moodCount < 1 || moodCount > 2) throw new IllegalArgumentException("MOOD 태그는 1~2개 선택해야 합니다.");
+        if (styleCount < 1 || styleCount > 2) throw new IllegalArgumentException("STYLE 태그는 1~2개 선택해야 합니다.");
+        if (immersionCount != 1) throw new IllegalArgumentException("IMMERSION 태그는 반드시 1개 선택해야 합니다.");
 
     }
 
