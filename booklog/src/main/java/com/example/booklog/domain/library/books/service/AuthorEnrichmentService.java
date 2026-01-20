@@ -2,7 +2,7 @@ package com.example.booklog.domain.library.books.service;
 
 import com.example.booklog.domain.library.books.dto.AuthorWikidataEnrichment;
 import com.example.booklog.domain.library.books.dto.WikidataSearchResponse;
-import com.example.booklog.domain.library.books.entity.common.Authors;
+import com.example.booklog.domain.library.books.entity.Authors;
 import com.example.booklog.domain.library.books.repository.AuthorsRepository;
 import com.example.booklog.domain.library.books.service.client.WikidataClient;
 import com.fasterxml.jackson.core.JsonProcessingException;

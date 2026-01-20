@@ -1,6 +1,6 @@
 package com.example.booklog.domain.library.books.repository;
 
-import com.example.booklog.domain.library.books.entity.common.Authors;
+import com.example.booklog.domain.library.books.entity.Authors;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
