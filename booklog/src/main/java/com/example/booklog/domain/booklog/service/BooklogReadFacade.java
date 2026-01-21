@@ -1,0 +1,26 @@
+package com.example.booklog.domain.booklog.service;
+
+import com.example.booklog.domain.booklog.dto.BooklogFeedQuery;
+import com.example.booklog.domain.booklog.dto.BooklogRecommendationResponse;
+import com.example.booklog.domain.booklog.entity.BooklogPost;
+import com.example.booklog.domain.booklog.view.AuthorView;
+import com.example.booklog.domain.booklog.view.BookView;
+import com.example.booklog.domain.booklog.view.TagView;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.stereotype.Component;
+
+
+import java.util.List;
+
+
+public interface BooklogReadFacade {
+
+    AuthorView findAuthorSummary(Long userId);
+    AuthorView findAuthorDetail(Long userId, Long viewerId);
+    BookView findBook(Long bookId);
+    List<TagView> findTagsByPostId(Long postId);
+    boolean isBookmarkedByMe(Long userId, Long postId);
+    Slice<BooklogPost> findFeedPostsSlice(BooklogFeedQuery query, Pageable pageable);
+    BooklogRecommendationResponse buildRecommendations(Long postId);
+}
