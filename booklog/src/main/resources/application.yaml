@@ -30,3 +30,4 @@ spring:
 kakao:
   book:
     rest-api-key: ${KAKAO_REST_API_KEY}
+
