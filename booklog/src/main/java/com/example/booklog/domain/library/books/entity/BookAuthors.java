@@ -17,26 +17,36 @@ import java.util.Objects;
 public class BookAuthors {
 
     @Id
-    @Column(name = "book_id")
+    @Column(name = "book_id", nullable = false)
     private Long bookId;
 
     @Id
-    @Column(name = "author_id")
+    @Column(name = "author_id", nullable = false)
     private Long authorId;
 
     @Id
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", length = 20)
+    @Column(name = "role", length = 20, nullable = false)
     private AuthorRole role;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "book_id", insertable = false, updatable = false,
-                foreignKey = @ForeignKey(name = "fk_book_authors_book"))
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "book_id",
+            nullable = false,
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(name = "fk_book_authors_book")
+    )
     private Books book;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", insertable = false, updatable = false,
-                foreignKey = @ForeignKey(name = "fk_book_authors_author"))
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "author_id",
+            nullable = false,
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(name = "fk_book_authors_author")
+    )
     private Authors author;
 
     @Column(name = "display_order", nullable = false)
@@ -44,23 +54,25 @@ public class BookAuthors {
 
     @Builder
     public BookAuthors(Books book, Authors author, AuthorRole role, Integer displayOrder) {
-        this.book = book;
-        this.author = author;
         this.role = role;
-        this.displayOrder = displayOrder != null ? displayOrder : 0;
+        this.displayOrder = (displayOrder != null) ? displayOrder : 0;
 
-        if (book != null && book.getId() != null) {
-            this.bookId = book.getId();
-        }
-        if (author != null && author.getId() != null) {
-            this.authorId = author.getId();
-        }
+        // 연관관계 세팅 + FK/PK 필드(bookId/authorId) 동기화
+        if (book != null) setBook(book);
+        if (author != null) setAuthor(author);
     }
 
     public void setBook(Books book) {
         this.book = book;
         if (book != null && book.getId() != null) {
             this.bookId = book.getId();
+        }
+    }
+
+    public void setAuthor(Authors author) {
+        this.author = author;
+        if (author != null && author.getId() != null) {
+            this.authorId = author.getId();
         }
     }
 
@@ -83,9 +95,9 @@ public class BookAuthors {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             BookAuthorId that = (BookAuthorId) o;
-            return Objects.equals(bookId, that.bookId) &&
-                   Objects.equals(authorId, that.authorId) &&
-                   role == that.role;
+            return Objects.equals(bookId, that.bookId)
+                    && Objects.equals(authorId, that.authorId)
+                    && role == that.role;
         }
 
         @Override
@@ -94,4 +106,3 @@ public class BookAuthors {
         }
     }
 }
-

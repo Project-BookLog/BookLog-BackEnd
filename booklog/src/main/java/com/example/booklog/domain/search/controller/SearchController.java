@@ -1,6 +1,6 @@
 package com.example.booklog.domain.search.controller;
 
-import com.example.booklog.domain.search.dto.BookSearchResponse;
+import com.example.booklog.domain.library.books.dto.BookSearchResponse;
 import com.example.booklog.domain.search.service.BookSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;

@@ -5,7 +5,7 @@ import com.example.booklog.domain.library.books.dto.KakaoBookSearchResponse;
 import com.example.booklog.domain.library.books.entity.Books;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -13,10 +13,10 @@ import java.util.List;
 @Component
 public class BookSearchConverter {
 
-    public LocalDateTime parseDatetime(String datetime) {
+    public LocalDate parseDate(String datetime) {
         if (datetime == null || datetime.isBlank()) return null;
         try {
-            return OffsetDateTime.parse(datetime).toLocalDateTime();
+            return OffsetDateTime.parse(datetime).toLocalDate();
         } catch (Exception e) {
             return null;
         }
@@ -34,7 +34,7 @@ public class BookSearchConverter {
                 saved.getIsbn13(),
                 authors,
                 translators,
-                saved.getPublishedAt()
+                saved.getPublishedDate()
         );
     }
 }

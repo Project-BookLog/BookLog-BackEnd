@@ -1,6 +1,7 @@
 package com.example.booklog.domain.library.books.entity;
 
 import com.example.booklog.domain.library.books.dto.AuthorWikidataEnrichment;
+import com.example.booklog.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -11,11 +12,11 @@ import lombok.NoArgsConstructor;
 @Table(name = "authors") // 추후 수정될 가능성이 있습니다. (작가 정보 찾는 로직)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Authors {
+public class Authors extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
+    @Column(name = "author_id")
     private Long id;
 
     @Column(name = "name", length = 100, nullable = false)
