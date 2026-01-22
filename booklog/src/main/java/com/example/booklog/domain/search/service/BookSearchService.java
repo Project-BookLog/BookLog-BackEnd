@@ -1,8 +1,8 @@
 package com.example.booklog.domain.search.service;
 
+import com.example.booklog.domain.library.books.dto.BookSearchItemResponse;
+import com.example.booklog.domain.library.books.dto.BookSearchResponse;
 import com.example.booklog.domain.library.books.service.BookImportService;
-import com.example.booklog.domain.search.dto.BookSearchItemResponse;
-import com.example.booklog.domain.search.dto.BookSearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +25,7 @@ public class BookSearchService {
      */
     public BookSearchResponse searchBooks(String query, int page, int size) {
         // 기존 BookImportService의 검색 로직 활용
-        com.example.booklog.domain.library.books.dto.BookSearchResponse legacyResponse =
+        BookSearchResponse legacyResponse =
                 bookImportService.searchAndUpsert(query, page, size);
 
         // DTO 변환 (legacy -> search domain)
@@ -36,7 +36,7 @@ public class BookSearchService {
      * legacy DTO를 search domain DTO로 변환
      */
     private BookSearchResponse convertToSearchResponse(
-            com.example.booklog.domain.library.books.dto.BookSearchResponse legacyResponse) {
+            BookSearchResponse legacyResponse) {
 
         var items = legacyResponse.items().stream()
                 .map(this::convertToSearchItem)
@@ -51,8 +51,7 @@ public class BookSearchService {
         );
     }
 
-    private BookSearchItemResponse convertToSearchItem(
-            com.example.booklog.domain.library.books.dto.BookSearchItemResponse legacyItem) {
+    private BookSearchItemResponse convertToSearchItem(BookSearchItemResponse legacyItem) {
 
         return new BookSearchItemResponse(
                 legacyItem.bookId(),
@@ -62,7 +61,7 @@ public class BookSearchService {
                 legacyItem.isbn13(),
                 legacyItem.authors(),
                 legacyItem.translators(),
-                legacyItem.publishedAt()
+                legacyItem.publishedDate()
         );
     }
 }

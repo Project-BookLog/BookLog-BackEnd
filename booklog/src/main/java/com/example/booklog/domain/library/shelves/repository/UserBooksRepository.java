@@ -1,0 +1,72 @@
+package com.example.booklog.domain.library.shelves.repository;
+
+import com.example.booklog.domain.library.shelves.entity.UserBooks;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
+public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
+
+    boolean existsByUser_IdAndBook_Id(Long userId, Long bookId);
+
+    Optional<UserBooks> findByUser_IdAndId(Long userId, Long userBookId);
+
+    @Query("""
+        select ub
+        from UserBooks ub
+        join fetch ub.book b
+        where ub.user.id = :userId
+          and (:status is null or ub.status = :status)
+          and (:shelfId is null or exists (
+              select 1
+              from BookshelfItems bi
+              where bi.shelf.id = :shelfId
+                and bi.book.id = ub.book.id
+          ))
+    """)
+    List<UserBooks> list(
+            @Param("userId") Long userId,
+            @Param("shelfId") Long shelfId,
+            @Param("status") String status,
+            Sort sort
+    );
+
+    @Query("""
+        select ub.book.id
+        from UserBooks ub
+        where ub.user.id = :userId
+          and ub.status = :status
+    """)
+    List<Long> findBookIdsByUserIdAndStatus(@Param("userId") Long userId,
+                                            @Param("status") String status);
+
+    @Query("""
+        select ub.book.id
+        from UserBooks ub
+        where ub.user.id = :userId
+          and ub.id in :userBookIds
+    """)
+    List<Long> findBookIdsByUserIdAndUserBookIds(@Param("userId") Long userId,
+                                                 @Param("userBookIds") Collection<Long> userBookIds);
+
+    @Modifying
+    @Query("delete from UserBooks ub where ub.user.id = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("delete from UserBooks ub where ub.user.id = :userId and ub.id in :ids")
+    int deleteByUserIdAndIds(@Param("userId") Long userId, @Param("ids") Collection<Long> ids);
+
+    @Modifying
+    @Query("delete from UserBooks ub where ub.user.id = :userId and ub.status = :status")
+    int deleteByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
+
+    Optional<UserBooks> findByUser_IdAndBook_Id(Long userId, Long bookId);
+
+    @Query("select ub.book.id from UserBooks ub where ub.user.id = :userId")
+    List<Long> findAllBookIdsByUserId(@Param("userId") Long userId);
+}

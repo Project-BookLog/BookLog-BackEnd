@@ -1,7 +1,6 @@
 package com.example.booklog.domain.library.books.dto;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 public record BookSearchItemResponse(
@@ -12,5 +11,5 @@ public record BookSearchItemResponse(
         String isbn13,
         List<String> authors,
         List<String> translators,
-        LocalDateTime publishedAt
+        LocalDate publishedDate
 ) {}

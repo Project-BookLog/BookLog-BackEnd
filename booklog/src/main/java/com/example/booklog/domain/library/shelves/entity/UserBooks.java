@@ -4,24 +4,27 @@ import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.global.common.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "user_books", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_user_book", columnNames = {"user_id", "book_id"})
-})
+@Table(
+        name = "user_books",
+        uniqueConstraints = @UniqueConstraint(name = "uk_user_books_user_book", columnNames = {"user_id", "book_id"}),
+        indexes = {
+                @Index(name = "idx_user_books_user", columnList = "user_id"),
+                @Index(name = "idx_user_books_status", columnList = "status"),
+                @Index(name = "idx_user_books_book", columnList = "book_id")
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserBooks extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
+    @Column(name = "user_book_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -32,64 +35,40 @@ public class UserBooks extends BaseEntity {
     @JoinColumn(name = "book_id", nullable = false, foreignKey = @ForeignKey(name = "fk_user_books_book"))
     private Books book;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
-    private ReadingStatus status;
+    private String status; // TO_READ/READING/DONE/STOPPED
 
-    @Column(name = "progress", nullable = false) //기존 progress_percent 진행률
-    private Integer progress = 0;
+    @Column(name = "progress_percent", nullable = false)
+    private int progressPercent;
 
     @Column(name = "current_page")
     private Integer currentPage;
 
-    @Column(name = "total_pages")
-    private Integer totalPages;
+    @Column(name = "start_date")
+    private LocalDate startDate;
 
-    @Column(name = "started_at")
-    private LocalDate startedAt;
+    @Column(name = "end_date")
+    private LocalDate endDate;
 
-    @Column(name = "completed_at")
-    private LocalDate completedAt;
+    @Column(name = "format", length = 20)
+    private String format; // PAPER/EBOOK/AUDIO 등
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "media_type", length = 20)
-    private MediaType mediaType;
+    @Column(name = "page_count_snapshot")
+    private Integer pageCountSnapshot;
 
     @Builder
-    public UserBooks(Users user, Books book, ReadingStatus status,
-                     Integer currentPage, Integer totalPages,
-                     LocalDate startedAt, MediaType mediaType) {
+    public UserBooks(Users user, Books book, String status) {
         this.user = user;
         this.book = book;
-        this.status = status != null ? status : ReadingStatus.PLANNING;
+        this.status = (status != null) ? status : "TO_READ";
+        this.progressPercent = 0;
+    }
+
+    public void updateStatus(String status) { this.status = status; }
+    public void updateProgress(Integer currentPage, Integer progressPercent) {
         this.currentPage = currentPage;
-        this.totalPages = totalPages;
-        this.startedAt = startedAt;
-        this.mediaType = mediaType;
-        this.progress = calculateProgress();
+        this.progressPercent = (progressPercent != null) ? progressPercent : this.progressPercent;
     }
-
-    public void updateReadingProgress(Integer currentPage, Integer totalPages) {
-        this.currentPage = currentPage;
-        this.totalPages = totalPages;
-        this.progress = calculateProgress();
-    }
-
-    public void updateStatus(ReadingStatus status) {
-        this.status = status;
-        if (status == ReadingStatus.READING && this.startedAt == null) {
-            this.startedAt = LocalDate.now();
-        } else if (status == ReadingStatus.COMPLETED) {
-            this.completedAt = LocalDate.now();
-            this.progress = 100;
-        }
-    }
-
-    private Integer calculateProgress() {
-        if (currentPage == null || totalPages == null || totalPages == 0) {
-            return 0;
-        }
-        return Math.min(100, (currentPage * 100) / totalPages);
-    }
+    public void setStartDateIfNull(LocalDate date) { if (this.startDate == null) this.startDate = date; }
+    public void setEndDate(LocalDate date) { this.endDate = date; }
 }
-

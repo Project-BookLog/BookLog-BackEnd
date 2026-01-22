@@ -14,7 +14,7 @@ public class AuthorAwards {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
+    @Column(name = "author_award_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
