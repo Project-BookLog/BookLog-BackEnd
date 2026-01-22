@@ -1,3 +1,5 @@
+# IntelliJ IDEA 관련 파일 무시
+gen/
 .idea/
 *.iws
 *.iml
@@ -5,3 +7,12 @@
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+
+# 데이터베이스 연결 정보 등 로컬 설정 무시
+.idea/dataSources.xml
+.idea/dataSources/
+.idea/dataSources.local.xml
+
+# 빌드 결과물 무시
+build/
+bin/
