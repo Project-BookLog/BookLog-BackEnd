@@ -80,7 +80,7 @@ public class UserBooks extends BaseEntity {
     아래 메소드 3개는 사용자의 페이지 입력관련 메소드
      */
     public void updatePageCountSnapshot(Integer totalPage) {
-        if (totalPage != null && totalPage < 0) throw new IllegalArgumentException();
+        if (totalPage == null || totalPage < 1) throw new IllegalArgumentException("총 페이지는 1 이상이어야 합니다.");
         this.pageCountSnapshot = totalPage;
         recalcProgressPercent();
     }
@@ -97,5 +97,6 @@ public class UserBooks extends BaseEntity {
         this.currentPage = currentPage;
         recalcProgressPercent();
     }
+
 
 }

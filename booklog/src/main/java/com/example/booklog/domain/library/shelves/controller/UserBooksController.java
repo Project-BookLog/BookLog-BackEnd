@@ -5,12 +5,16 @@ import com.example.booklog.domain.library.shelves.service.UserBooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -155,33 +159,42 @@ public class UserBooksController {
     }
 
     @Operation(
-            summary = "저장 도서 수정(상태 변경 + 서재 추가)",
+            summary = "도서 총 페이지 입력",
             description = """
-                    저장 도서 일부 필드를 수정합니다. (PATCH)
-
-                    - 헤더: X-USER-ID (필수)
-                    - Path: userBookId
-                    - Body:
-                      - status: 선택
-                      - shelfId: 선택 → 해당 서재에 추가(A 방식)
-                    """
+                사용자가 직접 입력하는 총 페이지 수(pageCountSnapshot)를 저장합니다.
+                - 책 메타(books)와 무관하게 user_books에 스냅샷으로 저장됩니다.
+                - 입력 후 progressPercent는 currentPage 기준으로 재계산됩니다.
+                """
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "성공(수정 완료)"),
-            @ApiResponse(responseCode = "400", description = "요청 값 오류"),
-            @ApiResponse(responseCode = "403", description = "내 서재가 아님"),
-            @ApiResponse(responseCode = "404", description = "저장 도서/서재 없음")
+            @ApiResponse(responseCode="204", description="저장 성공", content=@Content),
+            @ApiResponse(responseCode="400", description="요청값 오류", content=@Content),
+            @ApiResponse(responseCode="404", description="저장 도서 없음/권한 없음", content=@Content)
     })
-    @PatchMapping("/{userBookId}")
-    public void update(
+    @PatchMapping(value = "/{userBookId}/total-page", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void saveTotalPage(
             @Parameter(name = "X-USER-ID", description = "유저 식별자(필수)", required = true, example = "1")
-            @RequestHeader(name = "X-USER-ID") Long userId,
+            @RequestHeader("X-USER-ID") Long userId,
 
-            @Parameter(name = "userBookId", description = "저장 도서 ID(필수)", required = true, example = "100")
-            @PathVariable(name = "userBookId") Long userBookId,
+            @Parameter(description = "저장 도서 ID(user_books.user_book_id)", required = true, example = "101")
+            @PathVariable Long userBookId,
 
-            @RequestBody UserBookUpdateRequest req
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "총 페이지 입력 요청",
+                    content = @Content(
+                            schema = @Schema(implementation = TotalPageSaveRequest.class),
+                            examples = @ExampleObject(
+                                    name = "총 페이지 입력 예시",
+                                    value = "{ \"pageCountSnapshot\": 312 }"
+                            )
+                    )
+            )
+            @org.springframework.web.bind.annotation.RequestBody @Valid TotalPageSaveRequest req
     ) {
-        userBooksService.update(userId, userBookId, req);
+        userBooksService.saveTotalPage(userId, userBookId, req);
     }
+
+
 }

@@ -15,19 +15,19 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
 
     Optional<UserBooks> findByUser_IdAndId(Long userId, Long userBookId);
 
+    @EntityGraph(attributePaths = "book")
     @Query("""
-        select ub
-        from UserBooks ub
-        join fetch ub.book b
-        where ub.user.id = :userId
-          and (:status is null or ub.status = :status)
-          and (:shelfId is null or exists (
-              select 1
-              from BookshelfItems bi
-              where bi.shelf.id = :shelfId
-                and bi.book.id = ub.book.id
-          ))
-    """)
+    select ub
+    from UserBooks ub
+    where ub.user.id = :userId
+      and (:status is null or ub.status = :status)
+      and (:shelfId is null or exists (
+          select 1
+          from BookshelfItems bi
+          where bi.shelf.id = :shelfId
+            and bi.book.id = ub.book.id
+      ))
+""")
     List<UserBooks> list(
             @Param("userId") Long userId,
             @Param("shelfId") Long shelfId,

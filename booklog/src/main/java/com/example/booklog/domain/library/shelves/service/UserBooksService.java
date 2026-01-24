@@ -226,4 +226,13 @@ public class UserBooksService {
             }
         }
     }
+    /** 총 페이지 입력 */
+    @Transactional
+    public void saveTotalPage(Long userId, Long userBookId, TotalPageSaveRequest req) {
+        UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
+                .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음/권한 없음"));
+
+        ub.updatePageCountSnapshot(req.pageCountSnapshot());
+    }
+
 }
