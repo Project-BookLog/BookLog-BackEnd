@@ -83,18 +83,20 @@ public class UserBooksService {
 
     /** 3) 저장 도서 목록 조회 /api/v1/user-books (전체) */
     @Transactional(readOnly = true)
-    public List<UserBookListItemResponse> listAll(Long userId, Long shelfId, String status, String sort) {
+    public UserBookListResponse listAll(Long userId, Long shelfId, String status, String sort) {
 
         Sort s = switch (sort == null ? "LATEST" : sort) {
             case "OLDEST" -> Sort.by(Sort.Direction.ASC, "createdAt");
             case "TITLE"  -> Sort.by(Sort.Direction.ASC, "book.title");
-            case "AUTHOR" -> Sort.by(Sort.Direction.ASC, "book.title"); // TODO: author join 정렬로 확장
+            case "AUTHOR" -> Sort.by(Sort.Direction.ASC, "book.title"); // TODO 확장
             default       -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
 
+        long totalCount = userBooksRepository.countByFilter(userId, shelfId, status);
+
         List<UserBooks> result = userBooksRepository.list(userId, shelfId, status, s);
 
-        return result.stream()
+        List<UserBookListItemResponse> items = result.stream()
                 .map(ub -> new UserBookListItemResponse(
                         ub.getId(),
                         ub.getStatus(),
@@ -106,6 +108,8 @@ public class UserBooksService {
                         ub.getBook().getPublisherName()
                 ))
                 .toList();
+
+        return new UserBookListResponse(totalCount, items);
     }
 
     /** 4) 저장 도서 삭제(전체/선택/서재내 전체/서재 선택 제거/상태별) /api/v1/user-books */

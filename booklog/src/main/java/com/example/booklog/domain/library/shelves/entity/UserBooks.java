@@ -41,6 +41,7 @@ public class UserBooks extends BaseEntity {
     @Column(name = "progress_percent", nullable = false)
     private int progressPercent;
 
+    //도서 저장/상태 변경을 위한 currentPage
     @Column(name = "current_page")
     private Integer currentPage;
 
@@ -53,7 +54,7 @@ public class UserBooks extends BaseEntity {
     @Column(name = "format", length = 20)
     private String format; // PAPER/EBOOK/AUDIO 등
 
-    @Column(name = "page_count_snapshot")
+    @Column(name = "page_count_snapshot")//유저가 설정한 총 페이지 수(판본/개인 기준). 진행률 계산 기준값
     private Integer pageCountSnapshot;
 
     @Builder
@@ -65,10 +66,36 @@ public class UserBooks extends BaseEntity {
     }
 
     public void updateStatus(String status) { this.status = status; }
+
     public void updateProgress(Integer currentPage, Integer progressPercent) {
         this.currentPage = currentPage;
         this.progressPercent = (progressPercent != null) ? progressPercent : this.progressPercent;
     }
+
     public void setStartDateIfNull(LocalDate date) { if (this.startDate == null) this.startDate = date; }
+
     public void setEndDate(LocalDate date) { this.endDate = date; }
+
+    /*
+    아래 메소드 3개는 사용자의 페이지 입력관련 메소드
+     */
+    public void updatePageCountSnapshot(Integer totalPage) {
+        if (totalPage != null && totalPage < 0) throw new IllegalArgumentException();
+        this.pageCountSnapshot = totalPage;
+        recalcProgressPercent();
+    }
+
+    private void recalcProgressPercent() {
+        if (currentPage == null || pageCountSnapshot == null || pageCountSnapshot <= 0) {
+            this.progressPercent = 0;
+            return;
+        }
+        this.progressPercent = (int)Math.min(100, Math.round(currentPage * 100.0 / pageCountSnapshot));
+    }
+
+    public void updateProgress(Integer currentPage) {
+        this.currentPage = currentPage;
+        recalcProgressPercent();
+    }
+
 }

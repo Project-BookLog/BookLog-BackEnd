@@ -73,7 +73,7 @@ public class UserBooksController {
             @ApiResponse(responseCode = "400", description = "정렬/상태 값이 허용 범위를 벗어남")
     })
     @GetMapping
-    public List<UserBookListItemResponse> list(
+    public UserBookListResponse list(
             @Parameter(name = "X-USER-ID", description = "유저 식별자(필수)", required = true, example = "1")
             @RequestHeader(name = "X-USER-ID") Long userId,
 

@@ -69,4 +69,23 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
 
     @Query("select ub.book.id from UserBooks ub where ub.user.id = :userId")
     List<Long> findAllBookIdsByUserId(@Param("userId") Long userId);
+
+    @Query("""
+    select count(ub)
+    from UserBooks ub
+    where ub.user.id = :userId
+      and (:status is null or ub.status = :status)
+      and (:shelfId is null or exists (
+          select 1
+          from BookshelfItems bi
+          where bi.shelf.id = :shelfId
+            and bi.book.id = ub.book.id
+      ))
+""")
+    long countByFilter(
+            @Param("userId") Long userId,
+            @Param("shelfId") Long shelfId,
+            @Param("status") String status
+    );
+
 }
