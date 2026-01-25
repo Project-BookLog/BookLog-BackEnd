@@ -48,4 +48,14 @@ public interface BookshelfItemsRepository extends JpaRepository<BookshelfItems, 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from BookshelfItems bi where bi.book.id = :bookId")
     int deleteByBookId(@Param("bookId") Long bookId);
+
+
+    /** ✅ 서재 프리뷰 3권(최근 담은 순) - book 즉시 로딩 */
+    @EntityGraph(attributePaths = "book")
+    List<BookshelfItems> findByShelf_IdOrderByAddedAtDesc(Long shelfId);
+
+    /** ✅ 서재 비우기(UNASSIGN 정책에서 사용) */
+    int deleteByShelf_Id(Long shelfId);
+
+
 }
