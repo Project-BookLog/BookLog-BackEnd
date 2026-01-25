@@ -27,6 +27,7 @@ spring:
       hibernate:
         format_sql: true # ???? SQL ??? ?? ?? ???
         dialect: org.hibernate.dialect.MySQLDialect
+
 kakao:
   book:
     rest-api-key: ${KAKAO_REST_API_KEY}
