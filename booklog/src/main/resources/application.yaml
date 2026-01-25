@@ -32,3 +32,17 @@ kakao:
   book:
     rest-api-key: ${KAKAO_REST_API_KEY}
 
+cloud:
+  aws:
+    s3:
+      bucket: booklog-s3
+      path:
+        review : review
+        profile : profile
+    region:
+      static: ap-northeast-2
+    stack:
+      auto: false
+    credentials:
+      accessKey: ${AWS_ACTION_ACCESS_KEY_ID}
+      secretKey: ${AWS_ACTION_SECRET_ACCESS_KEY}
