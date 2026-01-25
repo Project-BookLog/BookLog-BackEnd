@@ -1,6 +1,8 @@
 package com.example.booklog.domain.search.controller;
 
 import com.example.booklog.domain.library.books.dto.BookSearchResponse;
+import com.example.booklog.domain.search.dto.AuthorSearchResponse;
+import com.example.booklog.domain.search.service.AuthorSearchService;
 import com.example.booklog.domain.search.service.BookSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -8,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 통합 검색 API 컨트롤러
  * - 도서 검색: /api/v1/search/books
- * - 작가 검색: /api/v1/search/authors (추후 구현)
+ * - 작가 검색: /api/v1/search/authors
  * - 통합 검색: /api/v1/search (추후 구현)
  */
 @RestController
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class SearchController {
 
     private final BookSearchService bookSearchService;
+    private final AuthorSearchService authorSearchService;
 
     /**
      * 도서 검색
@@ -32,12 +35,22 @@ public class SearchController {
     }
 
     /**
-     * 작가 검색 (추후 구현)
+     * 작가 검색
      * GET /api/v1/search/authors?query={검색어}&page={페이지}&size={크기}
+     *
+     * @param query 검색어 (작가명)
+     * @param page 페이지 번호 (1부터 시작, 기본값: 1)
+     * @param size 페이지 크기 (기본값: 10)
+     * @return 작가 검색 결과 (작가 기본 정보 + 대표작 최대 2권)
      */
-    // TODO: 작가 검색 구현
-    // @GetMapping("/authors")
-    // public AuthorSearchResponse searchAuthors(...)
+    @GetMapping("/authors")
+    public AuthorSearchResponse searchAuthors(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return authorSearchService.searchAuthors(query, page, size);
+    }
 
     /**
      * 통합 검색 (추후 구현)
