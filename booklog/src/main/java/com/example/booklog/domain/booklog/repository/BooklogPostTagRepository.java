@@ -12,7 +12,7 @@ public interface BooklogPostTagRepository extends JpaRepository<BooklogPostTag, 
     List<BooklogPostTag> findAllByPostId(Long id);
 
     // N+1 문제 해결 (여러개의 피드 조회 시)
-    List<BooklogPostTag> findAllByTagIdIn(Collection<Long> postIds);
+    List<BooklogPostTag> findAllByTagIdIn(Collection<Long> tagIds);
 
 
     List<BooklogPostTag> findAllByPostIdIn(Collection<Long> postIds);

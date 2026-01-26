@@ -88,17 +88,24 @@ public class BooklogPostServiceImpl implements BooklogPostService {
 
     private void savePostTags(Long postId, List<Long> tagIds) {
         if (tagIds == null || tagIds.isEmpty()) return;
-        for (Long tagId : tagIds) {
-            postTagRepository.save(BooklogPostTag.of(postId, tagId));
-        }
+
+        List<BooklogPostTag> entities = tagIds.stream()
+                .distinct() // 혹시 모를 중복 방지(UK 걸려있음)
+                .map(tagId -> BooklogPostTag.of(postId, tagId))
+                .toList();
+
+        postTagRepository.saveAll(entities);
     }
 
     private void savePostImages(Long postId, List<String> imageUrls) {
         if (imageUrls == null || imageUrls.isEmpty()) return;
+
+        List<BooklogPostImage> entities = new java.util.ArrayList<>();
         int order = 0;
         for (String url : imageUrls) {
-            postImageRepository.save(BooklogPostImage.of(postId, url, order++));
+            entities.add(BooklogPostImage.of(postId, url, order++));
         }
+        postImageRepository.saveAll(entities);
     }
 
     /**
@@ -118,6 +125,20 @@ public class BooklogPostServiceImpl implements BooklogPostService {
 
         List<Long> postIds = posts.stream().map(BooklogPost::getId).toList();
 
+        List<Long> userIds = posts.stream().map(BooklogPost::getUserId).distinct().toList();
+        List<Long> bookIds = posts.stream().map(BooklogPost::getBookId).distinct().toList();
+
+        Map<Long, AuthorView> authorMap = booklogReadFacade.findAuthorSummariesByIds(userIds)
+                .stream().collect(Collectors.toMap(AuthorView::getUserId, a -> a));
+
+        Map<Long, BookView> bookMap = booklogReadFacade.findBooksByIds(bookIds)
+                .stream().collect(Collectors.toMap(BookView::getBookId, b -> b));
+
+
+        Set<Long> bookmarkedSet = new HashSet<>(
+                bookmarkRepository.findBookmarkedPostIdsByUserIdInPostIds(userId, postIds)
+        );
+
         // (1) 이미지 배치
         List<PostImageView> imageViews = postImageRepository.findByPostIdInOrderByPostIdAscDisplayOrderAsc(postIds);
         Map<Long, List<PostImageView>> imagesMap = imageViews.stream()
@@ -129,16 +150,14 @@ public class BooklogPostServiceImpl implements BooklogPostService {
                 .collect(Collectors.groupingBy(BooklogPostTag::getPostId,
                         Collectors.mapping(BooklogPostTag::getTagId, Collectors.toList())));
 
-        // (3) 북마크 카운트 배치
-        Map<Long, Long> bookmarkCountMap = toCountMap(bookmarkRepository.countByPostIds(postIds));
 
         // 카드 조립
         List<BooklogPostCardResponse> cards = new ArrayList<>();
         for (BooklogPost p : posts) {
             Long postId = p.getId();
 
-            AuthorView author = booklogReadFacade.findAuthorSummary(p.getUserId());
-            BookView book = booklogReadFacade.findBook(p.getBookId());
+            AuthorView author = authorMap.get(p.getUserId());
+            BookView book = bookMap.get(p.getBookId());
 
             List<? extends PostImageView> images = imagesMap.getOrDefault(postId, List.of());
 
@@ -147,8 +166,8 @@ public class BooklogPostServiceImpl implements BooklogPostService {
                     postIdToTagIds.getOrDefault(postId, List.of())
             );
 
-            boolean bookmarkedByMe = booklogReadFacade.isBookmarkedByMe(userId, postId);
-            long bookmarkCount = bookmarkCountMap.getOrDefault(postId, 0L);
+            boolean bookmarkedByMe = bookmarkedSet.contains(postId);
+            long bookmarkCount = p.getBookmarkCount();
 
             cards.add(feedConverter.toCard(
                     postId,
@@ -167,16 +186,6 @@ public class BooklogPostServiceImpl implements BooklogPostService {
         return feedConverter.toFeedResponse(cards, slice.hasNext());
     }
 
-    private Map<Long, Long> toCountMap(List<Object[]> rows) {
-        Map<Long, Long> m = new HashMap<>();
-        if (rows == null) return m;
-        for (Object[] r : rows) {
-            Long postId = (Long) r[0];
-            Long cnt = (Long) r[1];
-            m.put(postId, cnt);
-        }
-        return m;
-    }
 
     /**
      * 3) 상세 조회
@@ -207,7 +216,7 @@ public class BooklogPostServiceImpl implements BooklogPostService {
         BookView book = booklogReadFacade.findBook(post.getBookId());
 
         boolean bookmarkedByMe = booklogReadFacade.isBookmarkedByMe(userId, postId);
-        long bookmarkCount = bookmarkRepository.countByPostId(postId);
+        long bookmarkCount = post.getBookmarkCount();
 
         // viewCount는 증가 쿼리 후 다시 조회 안 하고, 화면 반영만 필요하면 +1 처리
         long viewCount = post.getViewCount() + 1;
@@ -265,25 +274,61 @@ public class BooklogPostServiceImpl implements BooklogPostService {
     @Transactional
     public BookmarkToggleResult toggleBookmark(Long userId, Long postId) {
 
-        // 1) 게시글 존재 + PUBLISHED 확인 (삭제 글 북마크 방지)
-        postRepository.findByIdAndStatus(postId, BooklogStatus.PUBLISHED)
+        // 1) 게시글 존재 + PUBLISHED 확인
+        BooklogPost post = postRepository.findByIdAndStatus(postId, BooklogStatus.PUBLISHED)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
-        // 2) 이미 북마크면 삭제, 아니면 생성
-        boolean already = bookmarkRepository.existsByUserIdAndPostId(userId, postId);
+        // 2) 이미 북마크한 row가 있는지 확인
+        var existing = bookmarkRepository.findByUserIdAndPostId(userId, postId);
 
-        if (already) {
-            bookmarkRepository.deleteByUserIdAndPostId(userId, postId);
-        } else {
-            bookmarkRepository.save(BooklogBookmark.of(userId, postId));
+        if (existing.isPresent()) {
+            // 북마크 해제
+            bookmarkRepository.delete(existing.get());
+            postRepository.decreaseBookmarkCount(postId, BooklogStatus.PUBLISHED, LocalDateTime.now());
+
+            // count 쿼리 없이 엔티티 값 기반으로 응답 (주의: 영속성 컨텍스트에 남아있을 수 있어 +1/-1만 반영)
+            long count = Optional.ofNullable(
+                    postRepository.findBookmarkCount(postId, BooklogStatus.PUBLISHED)
+            ).orElse(0L);
+
+            return BookmarkToggleResult.builder()
+                    .bookmarkedByMe(false)
+                    .bookmarkCount(count)
+                    .build();
         }
 
-        // 3) 최신 북마크 수 조회해서 응답
-        long count = bookmarkRepository.countByPostId(postId);
+        // 3) 없으면 북마크 생성 (동시성: unique 충돌 가능)
+        try {
+            bookmarkRepository.save(BooklogBookmark.of(userId, postId));
+            postRepository.increaseBookmarkCount(postId, BooklogStatus.PUBLISHED, LocalDateTime.now());
 
-        return BookmarkToggleResult.builder()
-                .bookmarkedByMe(!already)
-                .bookmarkCount(count)
-                .build();
+            long count = Optional.ofNullable(
+                    postRepository.findBookmarkCount(postId, BooklogStatus.PUBLISHED)
+            ).orElse(0L);
+
+            return BookmarkToggleResult.builder()
+                    .bookmarkedByMe(true)
+                    .bookmarkCount(count)
+                    .build();
+
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 동시에 다른 요청이 먼저 insert했을 가능성
+            // 토글이므로 "이미 북마크된 상태"로 보고 즉시 해제까지 수행
+            var insertedByOther = bookmarkRepository.findByUserIdAndPostId(userId, postId);
+            if (insertedByOther.isPresent()) {
+                bookmarkRepository.delete(insertedByOther.get());
+                postRepository.decreaseBookmarkCount(postId, BooklogStatus.PUBLISHED, LocalDateTime.now());
+                long count = Optional.ofNullable(
+                        postRepository.findBookmarkCount(postId, BooklogStatus.PUBLISHED)
+                ).orElse(0L);
+
+                return BookmarkToggleResult.builder()
+                        .bookmarkedByMe(false)
+                        .bookmarkCount(count)
+                        .build();
+            }
+            // 정말 다른 무결성 오류라면 그대로 던짐
+            throw e;
+        }
     }
 }

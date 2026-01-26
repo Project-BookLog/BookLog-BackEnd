@@ -7,6 +7,9 @@ import com.example.booklog.domain.users.repository.UsersRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class UserReadPortImpl implements UserReadPort {
@@ -48,6 +51,24 @@ public class UserReadPortImpl implements UserReadPort {
                 u.getProfileImageUrl(),
                 followedByMe
         );
+    }
+
+    @Override
+    public List<AuthorView> findAuthorSummariesByIds(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return List.of();
+
+        // usersRepository는 JpaRepository라서 findAllById 지원
+        List<Users> users = usersRepository.findAllById(userIds);
+
+        return users.stream()
+                .map(u -> (AuthorView) new AuthorViewImpl(
+                        u.getId(),
+                        u.getNickname(),
+                        null,
+                        u.getProfileImageUrl(),
+                        null
+                ))
+                .toList();
     }
 
     /**

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface BooklogBookmarkRepository extends JpaRepository<BooklogBookmark, Long> {
 
@@ -20,5 +21,15 @@ public interface BooklogBookmarkRepository extends JpaRepository<BooklogBookmark
     """)
     List<Object[]> countByPostIds(List<Long> postIds);
 
+    @Query("""
+    select b.postId
+    from BooklogBookmark b
+    where b.userId = :userId
+      and b.postId in :postIds
+""")
+    List<Long> findBookmarkedPostIdsByUserIdInPostIds(Long userId, List<Long> postIds);
+
     void deleteByUserIdAndPostId(Long userId, Long postId);
+
+    Optional<BooklogBookmark> findByUserIdAndPostId(Long userId, Long postId);
 }

@@ -11,15 +11,13 @@ import com.example.booklog.domain.booklog.port.UserReadPort;
 import com.example.booklog.domain.booklog.repository.BooklogBookmarkRepository;
 import com.example.booklog.domain.booklog.repository.BooklogPostRepository;
 import com.example.booklog.domain.booklog.repository.BooklogPostTagRepository;
+import com.example.booklog.domain.booklog.repository.BooklogRecommendationRepository;
 import com.example.booklog.domain.booklog.view.AuthorView;
 import com.example.booklog.domain.booklog.view.BookView;
+import com.example.booklog.domain.booklog.view.SimilarBookAggView;
 import com.example.booklog.domain.booklog.view.TagView;
-import com.example.booklog.domain.library.books.entity.Books;
-import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.tags.entity.Tags;
 import com.example.booklog.domain.tags.repository.TagsRepository;
-import com.example.booklog.domain.users.entity.Users;
-import com.example.booklog.domain.users.repository.UsersRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -38,7 +36,7 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
     private final BooklogBookmarkRepository bookmarkRepository;
 
     private final BooklogRecommendationConverter recommendationConverter;
-
+    private final BooklogRecommendationRepository recommendationRepository;
     private final UserReadPort userReadPort;
     private final BookReadPort bookReadPort;
 
@@ -53,8 +51,18 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
     }
 
     @Override
+    public List<AuthorView> findAuthorSummariesByIds(Collection<Long> userIds) {
+        return userReadPort.findAuthorSummariesByIds(userIds);
+    }
+
+    @Override
     public BookView findBook(Long bookId) {
         return bookReadPort.findBook(bookId);
+    }
+
+    @Override
+    public List<BookView> findBooksByIds(Collection<Long> bookIds) {
+        return bookReadPort.findBooksByIds(bookIds);
     }
 
     @Override
@@ -104,67 +112,69 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
     @Override
     public Slice<BooklogPost> findFeedPostsSlice(BooklogFeedQuery query, Pageable pageable) {
 
-        List<Long> mood = query == null ? null : query.getMoodTagIds();
-        List<Long> style = query == null ? null : query.getStyleTagIds();
-        List<Long> immersion = query == null ? null : query.getImmersionTagIds();
+        List<Long> mood = (query == null) ? List.of() : safeList(query.getMoodTagIds());
+        List<Long> style = (query == null) ? List.of() : safeList(query.getStyleTagIds());
+        List<Long> immersion = (query == null) ? List.of() : safeList(query.getImmersionTagIds());
 
-        boolean noFilter = isEmpty(mood) && isEmpty(style) && isEmpty(immersion);
-        if (noFilter) {
+        boolean moodEmpty = mood.isEmpty();
+        boolean styleEmpty = style.isEmpty();
+        boolean immersionEmpty = immersion.isEmpty();
+
+        if (moodEmpty && styleEmpty && immersionEmpty) {
             return postRepository.findAllByStatusOrderByCreatedAtDesc(BooklogStatus.PUBLISHED, pageable);
         }
 
-        Set<Long> candidate = null;
+        var page = postRepository.findPublishedFeedByTagFilters(
+                moodEmpty, moodEmpty ? List.of(-1L) : mood,      // IN () 방지용 더미
+                styleEmpty, styleEmpty ? List.of(-1L) : style,
+                immersionEmpty, immersionEmpty ? List.of(-1L) : immersion,
+                pageable
+        );
 
-        candidate = intersect(candidate, postIdsHavingAnyTag(mood));
-        candidate = intersect(candidate, postIdsHavingAnyTag(style));
-        candidate = intersect(candidate, postIdsHavingAnyTag(immersion));
-
-        if (candidate == null || candidate.isEmpty()) {
-            // 빈 slice가 필요하면 pageable size 0으로 조회하는 꼼수 대신
-            // Service에서 empty response 처리하는게 더 깔끔하지만,
-            // 여기선 간단히 empty content slice 반환을 위해 published slice를 요청 크기 0으로 호출
-            return postRepository.findAllByStatusOrderByCreatedAtDesc(BooklogStatus.PUBLISHED, Pageable.ofSize(0));
-        }
-
-        return postRepository.findAllByIdInAndStatusOrderByCreatedAtDesc(candidate, BooklogStatus.PUBLISHED, pageable);
+        return page; // Page는 Slice를 상속하므로 그대로 반환 가능
     }
 
-    private boolean isEmpty(List<Long> v) {
-        return v == null || v.isEmpty();
-    }
-
-    private Set<Long> postIdsHavingAnyTag(List<Long> tagIds) {
-        if (isEmpty(tagIds)) return null;
-
-        List<BooklogPostTag> mappings = postTagRepository.findAllByTagIdIn(tagIds);
-        if (mappings.isEmpty()) return Set.of();
-
-        return mappings.stream().map(BooklogPostTag::getPostId).collect(Collectors.toSet());
-    }
-
-    private Set<Long> intersect(Set<Long> base, Set<Long> incoming) {
-        if (incoming == null) return base; // 해당 카테고리 필터 없음
-        if (base == null) return new HashSet<>(incoming);
-        base.retainAll(incoming);
-        return base;
+    private List<Long> safeList(List<Long> v) {
+        return (v == null) ? List.of() : v;
     }
 
     @Override
     public BooklogRecommendationResponse buildRecommendations(Long postId) {
+
         BooklogPost base = postRepository.findByIdAndStatus(postId, BooklogStatus.PUBLISHED)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
+        // 1) base post의 tagIds
         List<TagView> baseTags = findTagsByPostId(postId);
         List<Long> tagIds = baseTags.stream().map(TagView::getTagId).distinct().toList();
 
-        List<BookView> similarBooks =
-                bookReadPort.findSimilarBooksByTagIdsOrderByRanking(tagIds, base.getBookId(), 10);
+        if (tagIds.isEmpty()) {
+            return recommendationConverter.toResponse(List.of(), List.of());
+        }
 
-        var similarBookCards = similarBooks.stream()
+        // 2) 추천 책 후보 집계 -> bookId 리스트
+        var bookAgg = recommendationRepository.findSimilarBooksAgg(tagIds, base.getBookId(), 10);
+        List<Long> bookIds = bookAgg.stream().map(SimilarBookAggView::getBookId).toList();
+
+        // 3) bookIds 배치 조회 (Port 배치 조회 메서드 활용)
+        Map<Long, BookView> bookMap = bookReadPort.findBooksByIds(bookIds).stream()
+                .collect(Collectors.toMap(BookView::getBookId, b -> b));
+
+        // 4) similarBooks 카드 생성 (집계 결과 순서 유지)
+        var similarBookCards = bookIds.stream()
+                .map(id -> bookMap.get(id))
+                .filter(Objects::nonNull)
                 .map(b -> recommendationConverter.toSimilarBook(b, baseTags))
                 .toList();
 
-        return recommendationConverter.toResponse(similarBookCards, List.of());
+        // 5) popularPosts
+        var popularViews = recommendationRepository.findPopularPostsByTags(tagIds, postId, 10);
+
+        var popularDtos = popularViews.stream()
+                .map(recommendationConverter::toPopularPost)   // ✅ 너 converter에 이미 있음
+                .toList();
+
+        return recommendationConverter.toResponse(similarBookCards, popularDtos);
     }
 
     // ---- TagView 구현체 (TagView가 interface라서) ----

@@ -6,6 +6,7 @@ import com.example.booklog.domain.library.books.repository.BooksRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 
 @Component
@@ -37,6 +38,23 @@ public class BookReadPortImpl implements BookReadPort {
     public List<BookView> findSimilarBooksByTagIdsOrderByRanking(List<Long> tagIds, Long excludeBookId, int limit) {
         // TODO: BooksRepository에 "태그 기반 + 랭킹순 + excludeBookId 제외 + limit" 쿼리 붙이면 됨
         return List.of();
+    }
+
+    @Override
+    public List<BookView> findBooksByIds(Collection<Long> bookIds) {
+        if (bookIds == null || bookIds.isEmpty()) return List.of();
+
+        List<Books> books = booksRepository.findAllById(bookIds);
+
+        return books.stream()
+                .map(b -> (BookView) new BookViewImpl(
+                        b.getId(),
+                        b.getTitle(),
+                        null,
+                        b.getPublisherName(),
+                        b.getThumbnailUrl()
+                ))
+                .toList();
     }
 
     /**
