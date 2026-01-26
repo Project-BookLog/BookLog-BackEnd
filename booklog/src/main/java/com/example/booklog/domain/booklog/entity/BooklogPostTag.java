@@ -17,8 +17,8 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(name = "uk_post_tag", columnNames = {"postId", "tagId"})
         },
         indexes = {
-                @Index(name = "idx_post_tag_post", columnList = "postId"),
-                @Index(name = "idx_post_tag_tag", columnList = "tagId")
+                @Index(name = "idx_post_tag_tag_post", columnList = "tagId, postId"),
+                @Index(name = "idx_post_tag_post_tag", columnList = "postId, tagId")
         }
 )
 public class BooklogPostTag {

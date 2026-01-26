@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface BooklogPostRepository extends JpaRepository<BooklogPost, Long> {
@@ -30,6 +32,7 @@ public interface BooklogPostRepository extends JpaRepository<BooklogPost, Long> 
     // 특정 책에 대한 피드 목록
     Slice<BooklogPost> findAllByBookIdAndStatusOrderByCreatedAtDesc(Long bookId, BooklogStatus status, Pageable pageable);
 
+    Slice<BooklogPost> findAllByIdInAndStatusOrderByCreatedAtDesc(Collection<Long> ids, BooklogStatus status, Pageable pageable);
 
     // 조회 수 +1 증가
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -56,5 +59,124 @@ public interface BooklogPostRepository extends JpaRepository<BooklogPost, Long> 
                    @Param("published") BooklogStatus published,
                    @Param("deleted") BooklogStatus deleted,
                    @Param("now") LocalDateTime now);
+
+
+    @Query(
+            value = """
+    SELECT p.*
+    FROM booklog_posts p
+    WHERE p.status = 'PUBLISHED'
+      AND (
+        :moodEmpty = true OR EXISTS (
+          SELECT 1
+          FROM booklog_post_tags pt
+          JOIN tags t ON t.tag_id = pt.tag_id
+          WHERE pt.post_id = p.id
+            AND t.category = 'MOOD'
+            AND pt.tag_id IN (:moodIds)
+        )
+      )
+      AND (
+        :styleEmpty = true OR EXISTS (
+          SELECT 1
+          FROM booklog_post_tags pt
+          JOIN tags t ON t.tag_id = pt.tag_id
+          WHERE pt.post_id = p.id
+            AND t.category = 'STYLE'
+            AND pt.tag_id IN (:styleIds)
+        )
+      )
+      AND (
+        :immersionEmpty = true OR EXISTS (
+          SELECT 1
+          FROM booklog_post_tags pt
+          JOIN tags t ON t.tag_id = pt.tag_id
+          WHERE pt.post_id = p.id
+            AND t.category = 'IMMERSION'
+            AND pt.tag_id IN (:immersionIds)
+        )
+      )
+    ORDER BY p.created_at DESC
+    """,
+            countQuery = """
+    SELECT COUNT(*)
+    FROM booklog_posts p
+    WHERE p.status = 'PUBLISHED'
+      AND (
+        :moodEmpty = true OR EXISTS (
+          SELECT 1
+          FROM booklog_post_tags pt
+          JOIN tags t ON t.tag_id = pt.tag_id
+          WHERE pt.post_id = p.id
+            AND t.category = 'MOOD'
+            AND pt.tag_id IN (:moodIds)
+        )
+      )
+      AND (
+        :styleEmpty = true OR EXISTS (
+          SELECT 1
+          FROM booklog_post_tags pt
+          JOIN tags t ON t.tag_id = pt.tag_id
+          WHERE pt.post_id = p.id
+            AND t.category = 'STYLE'
+            AND pt.tag_id IN (:styleIds)
+        )
+      )
+      AND (
+        :immersionEmpty = true OR EXISTS (
+          SELECT 1
+          FROM booklog_post_tags pt
+          JOIN tags t ON t.tag_id = pt.tag_id
+          WHERE pt.post_id = p.id
+            AND t.category = 'IMMERSION'
+            AND pt.tag_id IN (:immersionIds)
+        )
+      )
+    """,
+            nativeQuery = true
+    )
+    Page<BooklogPost> findPublishedFeedByTagFilters(
+            @Param("moodEmpty") boolean moodEmpty,
+            @Param("moodIds") List<Long> moodIds,
+            @Param("styleEmpty") boolean styleEmpty,
+            @Param("styleIds") List<Long> styleIds,
+            @Param("immersionEmpty") boolean immersionEmpty,
+            @Param("immersionIds") List<Long> immersionIds,
+            Pageable pageable
+    );
+
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+    update BooklogPost p
+       set p.bookmarkCount = p.bookmarkCount + 1,
+           p.updatedAt = :now
+     where p.id = :postId
+       and p.status = :published
+""")
+    int increaseBookmarkCount(@Param("postId") Long postId,
+                              @Param("published") BooklogStatus published,
+                              @Param("now") LocalDateTime now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+    update BooklogPost p
+       set p.bookmarkCount = case when p.bookmarkCount > 0 then p.bookmarkCount - 1 else 0 end,
+           p.updatedAt = :now
+     where p.id = :postId
+       and p.status = :published
+""")
+    int decreaseBookmarkCount(@Param("postId") Long postId,
+                              @Param("published") BooklogStatus published,
+                              @Param("now") LocalDateTime now);
+
+    @Query("""
+    select p.bookmarkCount
+    from BooklogPost p
+    where p.id = :postId
+      and p.status = :published
+""")
+    Long findBookmarkCount(@Param("postId") Long postId,
+                           @Param("published") BooklogStatus published);
 }
 

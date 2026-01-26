@@ -1,5 +1,6 @@
 package com.example.booklog.domain.booklog.service;
 
+import com.example.booklog.domain.booklog.controller.BooklogPostController;
 import com.example.booklog.domain.booklog.dto.*;
 import org.springframework.data.domain.Pageable;
 
@@ -15,4 +16,6 @@ public interface BooklogPostService {
     BooklogRecommendationResponse getRecommendations(Long userId, Long postId);
 
     void softDelete(Long userId, Long postId);
+
+    BookmarkToggleResult toggleBookmark(Long userId, Long postId);
 }
