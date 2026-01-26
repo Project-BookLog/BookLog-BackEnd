@@ -1,13 +1,13 @@
 package com.example.booklog.domain.library.shelves.controller;
 
 import com.example.booklog.domain.library.shelves.dto.*;
+import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
 import com.example.booklog.domain.library.shelves.entity.UserBookSort;
 import com.example.booklog.domain.library.shelves.service.UserBooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -86,7 +86,7 @@ public class UserBooksController {
             @RequestParam(name = "shelfId", required = false) Long shelfId,
 
             @Parameter(description = "상태(선택)", example = "READING")
-            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "status", required = false) ReadingStatus status,
 
             @Parameter(description = "정렬(선택). 기본 LATEST", example = "LATEST")
             @RequestParam(name = "sort", required = false, defaultValue = "LATEST") UserBookSort sort
@@ -122,7 +122,7 @@ public class UserBooksController {
             @RequestParam(name = "shelfId", required = false) Long shelfId,
 
             @Parameter(description = "상태(선택). 있으면 해당 상태를 라이브러리에서 전체 삭제", example = "STOPPED")
-            @RequestParam(name = "status", required = false) String status
+            @RequestParam(name = "status", required = false) ReadingStatus  status
     ) {
         List<Long> ids = (body == null) ? null : body.ids();
         return userBooksService.delete(userId, ids, shelfId, status);
@@ -181,20 +181,37 @@ public class UserBooksController {
             @Parameter(description = "저장 도서 ID(user_books.user_book_id)", required = true, example = "101")
             @PathVariable Long userBookId,
 
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "총 페이지 입력 요청",
-                    content = @Content(
-                            schema = @Schema(implementation = TotalPageSaveRequest.class),
-                            examples = @ExampleObject(
-                                    name = "총 페이지 입력 예시",
-                                    value = "{ \"pageCountSnapshot\": 312 }"
-                            )
-                    )
-            )
-            @org.springframework.web.bind.annotation.RequestBody @Valid TotalPageSaveRequest req
+            @RequestBody @Valid TotalPageSaveRequest req
     ) {
         userBooksService.saveTotalPage(userId, userBookId, req);
+    }
+
+    @Operation(
+            summary = "저장 도서 수정(상태/책종류 변경, 서재 추가)",
+            description = """
+            user_books의 일부 필드만 변경합니다.
+            - status: 읽기 상태 변경
+            - format: 책 종류(종이/전자/오디오) 변경
+            - shelfId: (A방식) 해당 서재에 '추가' (이동 아님)
+            """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode="204", description="수정 성공", content=@Content),
+            @ApiResponse(responseCode="400", description="요청값 오류", content=@Content),
+            @ApiResponse(responseCode="403", description="내 서재가 아님", content=@Content),
+            @ApiResponse(responseCode="404", description="저장 도서/서재 없음", content=@Content)
+    })
+    @PatchMapping(value = "/{userBookId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void update(
+            @Parameter(name = "X-USER-ID", description = "유저 식별자(필수)", required = true, example = "1")
+            @RequestHeader("X-USER-ID") Long userId,
+
+            @Parameter(description = "저장 도서 ID(user_books.user_book_id)", required = true, example = "101")
+            @PathVariable Long userBookId,
+            @RequestBody @Valid UserBookUpdateRequest req
+    ) {
+        userBooksService.update(userId, userBookId, req);
     }
 
 

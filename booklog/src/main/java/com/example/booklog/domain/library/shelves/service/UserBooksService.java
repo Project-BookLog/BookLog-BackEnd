@@ -4,10 +4,7 @@ import com.example.booklog.domain.library.books.entity.AuthorRole;
 import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.shelves.dto.*;
-import com.example.booklog.domain.library.shelves.entity.BookshelfItems;
-import com.example.booklog.domain.library.shelves.entity.Bookshelves;
-import com.example.booklog.domain.library.shelves.entity.UserBookSort;
-import com.example.booklog.domain.library.shelves.entity.UserBooks;
+import com.example.booklog.domain.library.shelves.entity.*;
 import com.example.booklog.domain.library.shelves.repository.BookshelfItemsRepository;
 import com.example.booklog.domain.library.shelves.repository.BookshelvesRepository;
 import com.example.booklog.domain.library.shelves.repository.UserBooksRepository;
@@ -46,7 +43,7 @@ public class UserBooksService {
 
         UserBooks userBook = userBooksRepository.findByUser_IdAndBook_Id(userId, req.bookId())
                 .orElseGet(() -> {
-                    String status = (req.status() != null) ? req.status() : "TO_READ";
+                    ReadingStatus status = (req.status() != null) ? req.status() : ReadingStatus.TO_READ;
 
                     UserBooks created = UserBooks.builder()
                             .user(user)
@@ -54,9 +51,9 @@ public class UserBooksService {
                             .status(status)
                             .build();
 
-                    if ("READING".equals(status)) {
+                    if (status == ReadingStatus.READING) {
                         created.setStartDateIfNull(LocalDate.now());
-                    } else if ("DONE".equals(status)) {
+                    } else if (status == ReadingStatus.COMPLETED) {
                         created.setStartDateIfNull(LocalDate.now());
                         created.setEndDate(LocalDate.now());
                         created.updateProgress(created.getCurrentPage(), 100);
@@ -85,7 +82,7 @@ public class UserBooksService {
 
     /** 3) 저장 도서 목록 조회 /api/v1/user-books (전체) */
     @Transactional(readOnly = true)
-    public UserBookListResponse listAll(Long userId, Long shelfId, String status, UserBookSort sort) {
+    public UserBookListResponse listAll(Long userId, Long shelfId, ReadingStatus status, UserBookSort sort) {
 
         // ✅ sort null 방지 + 기준 통일
         UserBookSort sortKey = (sort == null ? UserBookSort.LATEST : sort);
@@ -178,7 +175,7 @@ public class UserBooksService {
 
     /** 4) 저장 도서 삭제(전체/선택/서재내 전체/서재 선택 제거/상태별) /api/v1/user-books */
     @Transactional
-    public int delete(Long userId, List<Long> ids, Long shelfId, String status) {
+    public int delete(Long userId, List<Long> ids, Long shelfId, ReadingStatus status) {
 
         // 1) 서재에서 선택 제거(= 라이브러리는 유지)  [shelfId + ids]
         if (shelfId != null && ids != null && !ids.isEmpty()) {
@@ -260,29 +257,41 @@ public class UserBooksService {
         );
     }
 
-    /** 6) 저장 도서 수정(상태 변경 + (옵션) 특정 서재에 추가) */
+    /** 6) 저장 도서 수정(상태 변경 + (옵션) 특정 서재에 추가 + 책종류 변경) */
     @Transactional
     public void update(Long userId, Long userBookId, UserBookUpdateRequest req) {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
                 .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음"));
 
+        // 1) 상태 변경
         if (req.status() != null) {
             ub.updateStatus(req.status());
 
-            if ("READING".equals(req.status())) {
+            if (req.status() == ReadingStatus.READING) {
                 ub.setStartDateIfNull(LocalDate.now());
-            } else if ("DONE".equals(req.status())) {
+                ub.setEndDate(null); // 정책: 다시 읽기 시작하면 end_date 초기화
+            } else if (req.status() == ReadingStatus.COMPLETED ) {
                 ub.setStartDateIfNull(LocalDate.now());
                 ub.setEndDate(LocalDate.now());
                 ub.updateProgress(ub.getCurrentPage(), 100);
+            } else {
+                // TO_READ / STOPPED 정책
+                ub.setEndDate(null);
             }
         }
 
-        // A방식: shelfId는 "추가"
+        // 2) 책 종류 변경
+        if (req.format() != null) {
+            ub.updateFormat(req.format()); // UserBooks에 updateFormat(BookFormat) 필요
+        }
+
+        // 3) A방식: shelfId는 "추가"
         if (req.shelfId() != null) {
             Bookshelves shelf = bookshelvesRepository.findById(req.shelfId())
                     .orElseThrow(() -> new IllegalArgumentException("서재 없음"));
-            if (!shelf.getUser().getId().equals(userId)) throw new IllegalStateException("내 서재가 아닙니다.");
+            if (!shelf.getUser().getId().equals(userId)) {
+                throw new IllegalStateException("내 서재가 아닙니다.");
+            }
 
             Long bookId = ub.getBook().getId();
             if (!bookshelfItemsRepository.existsByShelf_IdAndBook_Id(req.shelfId(), bookId)) {
@@ -290,6 +299,7 @@ public class UserBooksService {
             }
         }
     }
+
     /** 총 페이지 입력 */
     @Transactional
     public void saveTotalPage(Long userId, Long userBookId, TotalPageSaveRequest req) {

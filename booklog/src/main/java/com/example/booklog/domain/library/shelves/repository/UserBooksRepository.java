@@ -1,6 +1,7 @@
 package com.example.booklog.domain.library.shelves.repository;
 
 import com.example.booklog.domain.library.shelves.dto.UserBookListItemResponse;
+import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
 import com.example.booklog.domain.library.shelves.entity.UserBooks;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.*;
@@ -36,7 +37,7 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
     List<UserBooks> list(
             @Param("userId") Long userId,
             @Param("shelfId") Long shelfId,
-            @Param("status") String status,
+            @Param("status") ReadingStatus status,
             Sort sort
     );
 
@@ -98,7 +99,7 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
           and ub.status = :status
     """)
     List<Long> findBookIdsByUserIdAndStatus(@Param("userId") Long userId,
-                                            @Param("status") String status);
+                                            @Param("status") ReadingStatus status);
 
     @Query("""
         select ub.book.id
@@ -119,7 +120,7 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
 
     @Modifying
     @Query("delete from UserBooks ub where ub.user.id = :userId and ub.status = :status")
-    int deleteByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
+    int deleteByUserIdAndStatus(@Param("userId") Long userId, @Param("status") ReadingStatus status);
 
     Optional<UserBooks> findByUser_IdAndBook_Id(Long userId, Long bookId);
 
@@ -141,7 +142,7 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
     long countByFilter(
             @Param("userId") Long userId,
             @Param("shelfId") Long shelfId,
-            @Param("status") String status
+            @Param("status") ReadingStatus status
     );
 
 }

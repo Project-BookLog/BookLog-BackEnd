@@ -4,6 +4,7 @@ import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.shelves.dto.*;
 import com.example.booklog.domain.library.shelves.entity.BookshelfItems;
 import com.example.booklog.domain.library.shelves.entity.Bookshelves;
+import com.example.booklog.domain.library.shelves.entity.UserBookSort;
 import com.example.booklog.domain.library.shelves.repository.BookshelfItemsRepository;
 import com.example.booklog.domain.library.shelves.repository.BookshelvesRepository;
 import com.example.booklog.domain.users.entity.Users;
@@ -33,7 +34,7 @@ public class BookshelvesService {
         }
 
         boolean isPublic = (req.isPublic() != null) && req.isPublic();
-        String sortOrder = (req.sortOrder() == null || req.sortOrder().isBlank()) ? "LATEST" : req.sortOrder();
+        UserBookSort sortOrder = (req.sortOrder() == null) ? UserBookSort.LATEST : req.sortOrder();
 
         Bookshelves shelf = Bookshelves.builder()
                 .user(user)
@@ -95,7 +96,7 @@ public class BookshelvesService {
 
         if (req.name() != null && !req.name().isBlank()) shelf.updateName(req.name());
         if (req.isPublic() != null) shelf.updatePublic(req.isPublic());
-        if (req.sortOrder() != null && !req.sortOrder().isBlank()) shelf.updateSortOrder(req.sortOrder());
+        if (req.sortOrder() != null) shelf.updateSortOrder(req.sortOrder());
     }
 
     /** 4) 서재 삭제(UNASSIGN 고정) */

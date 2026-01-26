@@ -36,7 +36,7 @@ public class UserBooks extends BaseEntity {
     private Books book;
 
     @Column(name = "status", length = 20, nullable = false)
-    private String status; // TO_READ/READING/DONE/STOPPED
+    private ReadingStatus status; // TO_READ/READING/DONE/STOPPED
 
     @Column(name = "progress_percent", nullable = false)
     private int progressPercent;
@@ -52,20 +52,20 @@ public class UserBooks extends BaseEntity {
     private LocalDate endDate;
 
     @Column(name = "format", length = 20)
-    private String format; // PAPER/EBOOK/AUDIO 등
+    private BookFormat format; // PAPER/EBOOK/AUDIO 등
 
     @Column(name = "page_count_snapshot")//유저가 설정한 총 페이지 수(판본/개인 기준). 진행률 계산 기준값
     private Integer pageCountSnapshot;
 
     @Builder
-    public UserBooks(Users user, Books book, String status) {
+    public UserBooks(Users user, Books book, ReadingStatus status) {
         this.user = user;
         this.book = book;
-        this.status = (status != null) ? status : "TO_READ";
+        this.status = (status != null) ? status : ReadingStatus.TO_READ;
         this.progressPercent = 0;
     }
 
-    public void updateStatus(String status) { this.status = status; }
+    public void updateStatus(ReadingStatus status) { this.status = status; }
 
     public void updateProgress(Integer currentPage, Integer progressPercent) {
         this.currentPage = currentPage;
@@ -96,6 +96,10 @@ public class UserBooks extends BaseEntity {
     public void updateProgress(Integer currentPage) {
         this.currentPage = currentPage;
         recalcProgressPercent();
+    }
+
+    public void updateFormat(BookFormat format) {
+        this.format = format;
     }
 
 

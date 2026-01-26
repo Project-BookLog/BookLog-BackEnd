@@ -10,7 +10,7 @@ import java.util.List;
 
 public record UserBookListItemResponse(
         Long userBookId,
-        String status,
+        ReadingStatus status,
         int progressPercent,
         Integer currentPage,
 

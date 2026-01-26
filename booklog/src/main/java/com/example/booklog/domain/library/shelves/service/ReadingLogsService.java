@@ -3,6 +3,7 @@ package com.example.booklog.domain.library.shelves.service;
 import com.example.booklog.domain.library.shelves.dto.ReadingLogResponse;
 import com.example.booklog.domain.library.shelves.dto.ReadingLogSaveRequest;
 import com.example.booklog.domain.library.shelves.entity.ReadingLogs;
+import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
 import com.example.booklog.domain.library.shelves.entity.UserBooks;
 import com.example.booklog.domain.library.shelves.repository.ReadingLogsRepository;
 import com.example.booklog.domain.library.shelves.repository.UserBooksRepository;
@@ -26,12 +27,20 @@ public class ReadingLogsService {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
                 .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음"));
 
-        // ✅ UI 입력은 pagesRead, currentPage는 서버가 계산
-        int prevCurrent = readingLogsRepository.findTopByUserBook_IdOrderByReadDateDescCreatedAtDesc(userBookId)
+
+        // prevCurrent 계산 (일단 유지)
+        int prevCurrent = readingLogsRepository
+                .findTopByUserBook_IdOrderByReadDateDescCreatedAtDesc(userBookId)
                 .map(ReadingLogs::getCurrentPage)
                 .orElse(0);
 
         int newCurrent = Math.max(0, prevCurrent + req.pagesRead());
+
+        // total page 있으면 clamp
+        Integer total = ub.getPageCountSnapshot();
+        if (total != null && total > 0) {
+            newCurrent = Math.min(newCurrent, total);
+        }
 
         ReadingLogs saved = readingLogsRepository.save(
                 ReadingLogs.builder()
@@ -42,10 +51,16 @@ public class ReadingLogsService {
                         .build()
         );
 
-        // ✅ 저장 후 user_books 최신상태 재계산
-        recalcUserBookFromLogs(ub);
+        // 저장 후 전체 재계산(로그 누적 + user_books)
+        recalcLogsAndUserBook(ub);
 
-        return new ReadingLogResponse(saved.getId(), ub.getId(), saved.getReadDate(), saved.getPagesRead(), saved.getCurrentPage());
+        return new ReadingLogResponse(
+                saved.getId(),
+                ub.getId(),
+                saved.getReadDate(),
+                saved.getPagesRead(),
+                saved.getCurrentPage()
+        );
     }
 
     /** PATCH /api/v1/reading-logs/{logId} */
@@ -54,19 +69,23 @@ public class ReadingLogsService {
         ReadingLogs log = readingLogsRepository.findOwned(userId, logId)
                 .orElseThrow(() -> new IllegalArgumentException("독서 기록 없음/권한 없음"));
 
-        // 일단 pagesRead, readDate만 바꾸고
-        // currentPage는 “전체 재계산”으로 맞추는 게 안전함(중간 기록 수정 시 누적이 연쇄적으로 바뀜)
+        UserBooks ub = log.getUserBook();
+
+        // pagesRead/readDate만 수정하고 누적은 전체 재계산
         log.update(req.readDate(), req.pagesRead(), log.getCurrentPage());
 
-        // ✅ 수정 후 user_books + 로그 currentPage를 전체 재계산해서 정합성 보장
-        UserBooks ub = log.getUserBook();
         recalcLogsAndUserBook(ub);
 
-        // 재계산 후 최신 log 다시 조회(또는 영속 상태 그대로 써도 되지만, 안전하게 다시 찾아도 됨)
         ReadingLogs updated = readingLogsRepository.findById(logId)
                 .orElseThrow(() -> new IllegalStateException("수정된 로그 조회 실패"));
 
-        return new ReadingLogResponse(updated.getId(), ub.getId(), updated.getReadDate(), updated.getPagesRead(), updated.getCurrentPage());
+        return new ReadingLogResponse(
+                updated.getId(),
+                ub.getId(),
+                updated.getReadDate(),
+                updated.getPagesRead(),
+                updated.getCurrentPage()
+        );
     }
 
     /** DELETE /api/v1/reading-logs/{logId} */
@@ -78,62 +97,65 @@ public class ReadingLogsService {
         UserBooks ub = log.getUserBook();
         readingLogsRepository.delete(log);
 
-        // ✅ 삭제 후 전체 재계산
         recalcLogsAndUserBook(ub);
     }
 
     // ---------------- 내부 로직 ----------------
 
-    /**
-     * logs를 기준으로:
-     * - 각 로그의 currentPage를 누적합으로 다시 계산
-     * - user_books.current_page, progress_percent, start_date, end_date 갱신
-     */
     private void recalcLogsAndUserBook(UserBooks ub) {
-        List<ReadingLogs> logs = readingLogsRepository.findByUserBook_IdOrderByReadDateAscCreatedAtAsc(ub.getId());
+        List<ReadingLogs> logs = readingLogsRepository
+                .findByUserBook_IdOrderByReadDateAscCreatedAtAsc(ub.getId());
 
         int running = 0;
+        Integer total = ub.getPageCountSnapshot();
+
         for (ReadingLogs rl : logs) {
             int pages = (rl.getPagesRead() == null) ? 0 : Math.max(0, rl.getPagesRead());
             running += pages;
+
+            if (total != null && total > 0) {
+                running = Math.min(running, total);
+            }
+
             rl.update(rl.getReadDate(), pages, running);
         }
 
         applyUserBookFromComputed(ub, logs, running);
     }
 
-    /**
-     * 빠르게 user_books만 재계산하고 싶을 때도 결국 logs를 기반으로 해야 안전.
-     * (여기서는 create에서도 같은 루틴을 사용)
-     */
-    private void recalcUserBookFromLogs(UserBooks ub) {
-        recalcLogsAndUserBook(ub);
-    }
-
     private void applyUserBookFromComputed(UserBooks ub, List<ReadingLogs> logs, int currentPageComputed) {
-        // start_date = 첫 기록 날짜(없으면 그대로 유지)
         if (!logs.isEmpty()) {
             ub.setStartDateIfNull(logs.get(0).getReadDate());
         }
 
-        // progress = current / total(= pageCountSnapshot)
         Integer total = ub.getPageCountSnapshot();
         int percent = calcPercent(currentPageComputed, total);
-
         ub.updateProgress(currentPageComputed, percent);
 
-        // end_date 정책: DONE이면 마지막 기록 날짜, 아니면 null
-        if ("DONE".equals(ub.getStatus())) {
+        if (ub.getStatus() == ReadingStatus.COMPLETED) {
             LocalDate last = logs.isEmpty() ? null : logs.get(logs.size() - 1).getReadDate();
             ub.setEndDate(last);
         } else {
             ub.setEndDate(null);
         }
-        // BaseEntity의 updatedAt이 자연스럽게 “최근 기록 반영 시각” 역할
     }
 
     private int calcPercent(int current, Integer total) {
         if (total == null || total <= 0) return 0;
         return (int) Math.min(100, Math.round(current * 100.0 / total));
+    }
+
+    private void applyStatusChange(UserBooks ub, ReadingStatus newStatus) {
+        ub.updateStatus(newStatus);
+
+        if (newStatus == ReadingStatus.READING) {
+            ub.setStartDateIfNull(LocalDate.now());
+        } else if (newStatus == ReadingStatus.COMPLETED) {
+            ub.setStartDateIfNull(LocalDate.now());
+            // end_date는 applyUserBookFromComputed에서 마지막 로그 날짜로 세팅됨
+        } else {
+            // TO_READ/STOPPED 등은 end_date 제거
+            ub.setEndDate(null);
+        }
     }
 }

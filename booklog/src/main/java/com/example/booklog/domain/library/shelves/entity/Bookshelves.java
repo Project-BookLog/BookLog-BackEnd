@@ -30,17 +30,17 @@ public class Bookshelves extends BaseEntity {
     private boolean isPublic;
 
     @Column(name = "sort_order", length = 20, nullable = false)
-    private String sortOrder; // ERD: VARCHAR(20)
+    private UserBookSort sortOrder; // ERD: VARCHAR(20)
 
     @Builder
-    public Bookshelves(Users user, String name, Boolean isPublic, String sortOrder) {
+    public Bookshelves(Users user, String name, Boolean isPublic, UserBookSort sortOrder) {
         this.user = user;
         this.name = name;
         this.isPublic = (isPublic != null) ? isPublic : false;
-        this.sortOrder = (sortOrder != null) ? sortOrder : "LATEST";
+        this.sortOrder = (sortOrder != null) ? sortOrder : UserBookSort.LATEST;
     }
 
     public void updateName(String name) { this.name = name; }
     public void updatePublic(boolean isPublic) { this.isPublic = isPublic; }
-    public void updateSortOrder(String sortOrder) { this.sortOrder = sortOrder; }
+    public void updateSortOrder(UserBookSort sortOrder) { this.sortOrder = sortOrder; }
 }
