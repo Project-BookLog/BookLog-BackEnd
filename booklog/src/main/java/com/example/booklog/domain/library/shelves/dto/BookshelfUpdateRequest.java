@@ -1,5 +1,6 @@
 package com.example.booklog.domain.library.shelves.dto;
 
+import com.example.booklog.domain.library.shelves.entity.UserBookSort;
 import jakarta.validation.constraints.Size;
 
 public record BookshelfUpdateRequest(
@@ -8,5 +9,5 @@ public record BookshelfUpdateRequest(
 
         Boolean isPublic,
 
-        String sortOrder
+        UserBookSort sortOrder
 ) {}

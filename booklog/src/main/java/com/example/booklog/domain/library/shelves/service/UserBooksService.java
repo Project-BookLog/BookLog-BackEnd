@@ -1,11 +1,10 @@
 package com.example.booklog.domain.library.shelves.service;
 
+import com.example.booklog.domain.library.books.entity.AuthorRole;
 import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.shelves.dto.*;
-import com.example.booklog.domain.library.shelves.entity.BookshelfItems;
-import com.example.booklog.domain.library.shelves.entity.Bookshelves;
-import com.example.booklog.domain.library.shelves.entity.UserBooks;
+import com.example.booklog.domain.library.shelves.entity.*;
 import com.example.booklog.domain.library.shelves.repository.BookshelfItemsRepository;
 import com.example.booklog.domain.library.shelves.repository.BookshelvesRepository;
 import com.example.booklog.domain.library.shelves.repository.UserBooksRepository;
@@ -44,7 +43,7 @@ public class UserBooksService {
 
         UserBooks userBook = userBooksRepository.findByUser_IdAndBook_Id(userId, req.bookId())
                 .orElseGet(() -> {
-                    String status = (req.status() != null) ? req.status() : "TO_READ";
+                    ReadingStatus status = (req.status() != null) ? req.status() : ReadingStatus.TO_READ;
 
                     UserBooks created = UserBooks.builder()
                             .user(user)
@@ -52,9 +51,9 @@ public class UserBooksService {
                             .status(status)
                             .build();
 
-                    if ("READING".equals(status)) {
+                    if (status == ReadingStatus.READING) {
                         created.setStartDateIfNull(LocalDate.now());
-                    } else if ("DONE".equals(status)) {
+                    } else if (status == ReadingStatus.COMPLETED) {
                         created.setStartDateIfNull(LocalDate.now());
                         created.setEndDate(LocalDate.now());
                         created.updateProgress(created.getCurrentPage(), 100);
@@ -83,34 +82,100 @@ public class UserBooksService {
 
     /** 3) 저장 도서 목록 조회 /api/v1/user-books (전체) */
     @Transactional(readOnly = true)
-    public List<UserBookListItemResponse> listAll(Long userId, Long shelfId, String status, String sort) {
+    public UserBookListResponse listAll(Long userId, Long shelfId, ReadingStatus status, UserBookSort sort) {
 
-        Sort s = switch (sort == null ? "LATEST" : sort) {
-            case "OLDEST" -> Sort.by(Sort.Direction.ASC, "createdAt");
-            case "TITLE"  -> Sort.by(Sort.Direction.ASC, "book.title");
-            case "AUTHOR" -> Sort.by(Sort.Direction.ASC, "book.title"); // TODO: author join 정렬로 확장
-            default       -> Sort.by(Sort.Direction.DESC, "createdAt");
+        // ✅ sort null 방지 + 기준 통일
+        UserBookSort sortKey = (sort == null ? UserBookSort.LATEST : sort);
+
+        // ✅ AUTHOR는 DB 정렬이 아니라 "자바 정렬"로 처리할 거라서 fallback만 둠
+        Sort s = switch (sortKey) {
+            case OLDEST -> Sort.by(Sort.Direction.ASC, "createdAt");
+            case TITLE  -> Sort.by(Sort.Direction.ASC, "book.title");
+            case AUTHOR -> Sort.by(Sort.Direction.DESC, "createdAt"); // fallback (실제로는 아래서 자바정렬)
+            default     -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
 
+        long totalCount = userBooksRepository.countByFilter(userId, shelfId, status);
+
+        // ✅ 기본 조회 (book은 EntityGraph로 가져오는 상태)
         List<UserBooks> result = userBooksRepository.list(userId, shelfId, status, s);
 
-        return result.stream()
-                .map(ub -> new UserBookListItemResponse(
-                        ub.getId(),
-                        ub.getStatus(),
-                        ub.getProgressPercent(),
-                        ub.getCurrentPage(),
-                        ub.getBook().getId(),
-                        ub.getBook().getTitle(),
-                        ub.getBook().getThumbnailUrl(),
-                        ub.getBook().getPublisherName()
-                ))
+        // ✅ AUTHOR일 때만 "자바에서 정렬"
+        if (sortKey == UserBookSort.AUTHOR) {
+            result = result.stream()
+                    .sorted((a, b) -> {
+                        String aName = normalizeForSort(getPrimaryAuthorName(a));
+                        String bName = normalizeForSort(getPrimaryAuthorName(b));
+
+                        // 1) authorName ASC (null은 뒤로)
+                        if (aName == null && bName == null) return 0;
+                        if (aName == null) return 1;
+                        if (bName == null) return -1;
+
+                        int cmp = aName.compareTo(bName);
+                        if (cmp != 0) return cmp;
+
+                        // 2) 같은 authorName이면 최신순(createdAt DESC)
+                        // createdAt이 없으면 getId()로 바꿔도 됨
+                        return b.getCreatedAt().compareTo(a.getCreatedAt());
+                    })
+                    .toList();
+        }
+
+        List<UserBookListItemResponse> items = result.stream()
+                .map(ub -> {
+                    String authorName = getPrimaryAuthorName(ub);
+
+                    return new UserBookListItemResponse(
+                            ub.getId(),
+                            ub.getStatus(),
+                            ub.getProgressPercent(),
+                            ub.getCurrentPage(),
+                            ub.getBook().getId(),
+                            ub.getBook().getTitle(),
+                            ub.getBook().getThumbnailUrl(),
+                            ub.getBook().getPublisherName(),
+                            authorName
+                    );
+                })
                 .toList();
+
+        return new UserBookListResponse(totalCount, items);
     }
+
+    /**
+     * ✅ 대표 저자명 1개만 뽑기
+     * - role=AUTHOR만
+     * - displayOrder 기준 (너 DB가 1부터 들어간다 했으니까 "작은 값 우선")
+     */
+    private String getPrimaryAuthorName(UserBooks ub) {
+        if (ub == null || ub.getBook() == null || ub.getBook().getBookAuthors() == null) {
+            return null;
+        }
+
+        return ub.getBook().getBookAuthors().stream()
+                .filter(ba -> ba.getRole() == AuthorRole.AUTHOR)
+                .sorted((x, y) -> Integer.compare(x.getDisplayOrder(), y.getDisplayOrder()))
+                .map(ba -> ba.getAuthor() != null ? ba.getAuthor().getName() : null)
+                .filter(name -> name != null && !name.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * ✅ 정렬용 normalize
+     * - 공백 제거 + 소문자 처리
+     */
+    private String normalizeForSort(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t.toLowerCase();
+    }
+
 
     /** 4) 저장 도서 삭제(전체/선택/서재내 전체/서재 선택 제거/상태별) /api/v1/user-books */
     @Transactional
-    public int delete(Long userId, List<Long> ids, Long shelfId, String status) {
+    public int delete(Long userId, List<Long> ids, Long shelfId, ReadingStatus status) {
 
         // 1) 서재에서 선택 제거(= 라이브러리는 유지)  [shelfId + ids]
         if (shelfId != null && ids != null && !ids.isEmpty()) {
@@ -192,29 +257,41 @@ public class UserBooksService {
         );
     }
 
-    /** 6) 저장 도서 수정(상태 변경 + (옵션) 특정 서재에 추가) */
+    /** 6) 저장 도서 수정(상태 변경 + (옵션) 특정 서재에 추가 + 책종류 변경) */
     @Transactional
     public void update(Long userId, Long userBookId, UserBookUpdateRequest req) {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
                 .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음"));
 
+        // 1) 상태 변경
         if (req.status() != null) {
             ub.updateStatus(req.status());
 
-            if ("READING".equals(req.status())) {
+            if (req.status() == ReadingStatus.READING) {
                 ub.setStartDateIfNull(LocalDate.now());
-            } else if ("DONE".equals(req.status())) {
+                ub.setEndDate(null); // 정책: 다시 읽기 시작하면 end_date 초기화
+            } else if (req.status() == ReadingStatus.COMPLETED ) {
                 ub.setStartDateIfNull(LocalDate.now());
                 ub.setEndDate(LocalDate.now());
                 ub.updateProgress(ub.getCurrentPage(), 100);
+            } else {
+                // TO_READ / STOPPED 정책
+                ub.setEndDate(null);
             }
         }
 
-        // A방식: shelfId는 "추가"
+        // 2) 책 종류 변경
+        if (req.format() != null) {
+            ub.updateFormat(req.format()); // UserBooks에 updateFormat(BookFormat) 필요
+        }
+
+        // 3) A방식: shelfId는 "추가"
         if (req.shelfId() != null) {
             Bookshelves shelf = bookshelvesRepository.findById(req.shelfId())
                     .orElseThrow(() -> new IllegalArgumentException("서재 없음"));
-            if (!shelf.getUser().getId().equals(userId)) throw new IllegalStateException("내 서재가 아닙니다.");
+            if (!shelf.getUser().getId().equals(userId)) {
+                throw new IllegalStateException("내 서재가 아닙니다.");
+            }
 
             Long bookId = ub.getBook().getId();
             if (!bookshelfItemsRepository.existsByShelf_IdAndBook_Id(req.shelfId(), bookId)) {
@@ -222,4 +299,14 @@ public class UserBooksService {
             }
         }
     }
+
+    /** 총 페이지 입력 */
+    @Transactional
+    public void saveTotalPage(Long userId, Long userBookId, TotalPageSaveRequest req) {
+        UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
+                .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음/권한 없음"));
+
+        ub.updatePageCountSnapshot(req.pageCountSnapshot());
+    }
+
 }

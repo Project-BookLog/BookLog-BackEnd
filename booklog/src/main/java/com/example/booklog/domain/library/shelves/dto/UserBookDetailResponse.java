@@ -1,15 +1,18 @@
 package com.example.booklog.domain.library.shelves.dto;
 
+import com.example.booklog.domain.library.shelves.entity.BookFormat;
+import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
+
 import java.time.LocalDate;
 
 public record UserBookDetailResponse(
         Long userBookId,
-        String status,
+        ReadingStatus status,
         int progressPercent,
         Integer currentPage,
         LocalDate startDate,
         LocalDate endDate,
-        String format,
+        BookFormat format,
         Integer pageCountSnapshot,
 
         Long bookId,

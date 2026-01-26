@@ -1,16 +1,21 @@
 package com.example.booklog.domain.library.shelves.controller;
 
 import com.example.booklog.domain.library.shelves.dto.*;
+import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
+import com.example.booklog.domain.library.shelves.entity.UserBookSort;
 import com.example.booklog.domain.library.shelves.service.UserBooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -73,7 +78,7 @@ public class UserBooksController {
             @ApiResponse(responseCode = "400", description = "정렬/상태 값이 허용 범위를 벗어남")
     })
     @GetMapping
-    public List<UserBookListItemResponse> list(
+    public UserBookListResponse list(
             @Parameter(name = "X-USER-ID", description = "유저 식별자(필수)", required = true, example = "1")
             @RequestHeader(name = "X-USER-ID") Long userId,
 
@@ -81,10 +86,10 @@ public class UserBooksController {
             @RequestParam(name = "shelfId", required = false) Long shelfId,
 
             @Parameter(description = "상태(선택)", example = "READING")
-            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "status", required = false) ReadingStatus status,
 
             @Parameter(description = "정렬(선택). 기본 LATEST", example = "LATEST")
-            @RequestParam(name = "sort", required = false, defaultValue = "LATEST") String sort
+            @RequestParam(name = "sort", required = false, defaultValue = "LATEST") UserBookSort sort
     ) {
         return userBooksService.listAll(userId, shelfId, status, sort);
     }
@@ -117,7 +122,7 @@ public class UserBooksController {
             @RequestParam(name = "shelfId", required = false) Long shelfId,
 
             @Parameter(description = "상태(선택). 있으면 해당 상태를 라이브러리에서 전체 삭제", example = "STOPPED")
-            @RequestParam(name = "status", required = false) String status
+            @RequestParam(name = "status", required = false) ReadingStatus  status
     ) {
         List<Long> ids = (body == null) ? null : body.ids();
         return userBooksService.delete(userId, ids, shelfId, status);
@@ -155,33 +160,59 @@ public class UserBooksController {
     }
 
     @Operation(
-            summary = "저장 도서 수정(상태 변경 + 서재 추가)",
+            summary = "도서 총 페이지 입력",
             description = """
-                    저장 도서 일부 필드를 수정합니다. (PATCH)
-
-                    - 헤더: X-USER-ID (필수)
-                    - Path: userBookId
-                    - Body:
-                      - status: 선택
-                      - shelfId: 선택 → 해당 서재에 추가(A 방식)
-                    """
+                사용자가 직접 입력하는 총 페이지 수(pageCountSnapshot)를 저장합니다.
+                - 책 메타(books)와 무관하게 user_books에 스냅샷으로 저장됩니다.
+                - 입력 후 progressPercent는 currentPage 기준으로 재계산됩니다.
+                """
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "성공(수정 완료)"),
-            @ApiResponse(responseCode = "400", description = "요청 값 오류"),
-            @ApiResponse(responseCode = "403", description = "내 서재가 아님"),
-            @ApiResponse(responseCode = "404", description = "저장 도서/서재 없음")
+            @ApiResponse(responseCode="204", description="저장 성공", content=@Content),
+            @ApiResponse(responseCode="400", description="요청값 오류", content=@Content),
+            @ApiResponse(responseCode="404", description="저장 도서 없음/권한 없음", content=@Content)
     })
-    @PatchMapping("/{userBookId}")
+    @PatchMapping(value = "/{userBookId}/total-page", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void saveTotalPage(
+            @Parameter(name = "X-USER-ID", description = "유저 식별자(필수)", required = true, example = "1")
+            @RequestHeader("X-USER-ID") Long userId,
+
+            @Parameter(description = "저장 도서 ID(user_books.user_book_id)", required = true, example = "101")
+            @PathVariable Long userBookId,
+
+            @RequestBody @Valid TotalPageSaveRequest req
+    ) {
+        userBooksService.saveTotalPage(userId, userBookId, req);
+    }
+
+    @Operation(
+            summary = "저장 도서 수정(상태/책종류 변경, 서재 추가)",
+            description = """
+            user_books의 일부 필드만 변경합니다.
+            - status: 읽기 상태 변경
+            - format: 책 종류(종이/전자/오디오) 변경
+            - shelfId: (A방식) 해당 서재에 '추가' (이동 아님)
+            """
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode="204", description="수정 성공", content=@Content),
+            @ApiResponse(responseCode="400", description="요청값 오류", content=@Content),
+            @ApiResponse(responseCode="403", description="내 서재가 아님", content=@Content),
+            @ApiResponse(responseCode="404", description="저장 도서/서재 없음", content=@Content)
+    })
+    @PatchMapping(value = "/{userBookId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public void update(
             @Parameter(name = "X-USER-ID", description = "유저 식별자(필수)", required = true, example = "1")
-            @RequestHeader(name = "X-USER-ID") Long userId,
+            @RequestHeader("X-USER-ID") Long userId,
 
-            @Parameter(name = "userBookId", description = "저장 도서 ID(필수)", required = true, example = "100")
-            @PathVariable(name = "userBookId") Long userBookId,
-
-            @RequestBody UserBookUpdateRequest req
+            @Parameter(description = "저장 도서 ID(user_books.user_book_id)", required = true, example = "101")
+            @PathVariable Long userBookId,
+            @RequestBody @Valid UserBookUpdateRequest req
     ) {
         userBooksService.update(userId, userBookId, req);
     }
+
+
 }
