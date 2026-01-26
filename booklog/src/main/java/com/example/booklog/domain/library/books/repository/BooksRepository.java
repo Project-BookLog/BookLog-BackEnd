@@ -2,6 +2,8 @@ package com.example.booklog.domain.library.books.repository;
 
 import com.example.booklog.domain.library.books.entity.Books;
 import jakarta.persistence.QueryHint;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
@@ -58,6 +60,45 @@ public interface BooksRepository extends JpaRepository<Books, Long> {
            "JOIN b.bookAuthors ba " +
            "WHERE ba.author.id IN :authorIds")
     long countBooksByAuthorIds(@Param("authorIds") List<Long> authorIds);
+
+    /**
+     * 도서 제목으로 검색 (페이징 및 정렬 지원)
+     *
+     * [정렬 옵션]
+     * - LATEST: publishedDate DESC, id DESC
+     * - OLDEST: publishedDate ASC, id ASC
+     * - TITLE: title ASC
+     * - AUTHOR: 첫 번째 저자명 ASC (BookAuthors.authorOrder = 1)
+     *
+     * @param keyword 검색 키워드 (제목 LIKE 검색)
+     * @param pageable 페이징 및 정렬 정보
+     * @return 도서 페이지
+     */
+    @Query("""
+        SELECT DISTINCT b FROM Books b
+        LEFT JOIN FETCH b.bookAuthors ba
+        LEFT JOIN FETCH ba.author a
+        WHERE b.title LIKE %:keyword%
+        """)
+    @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
+    Page<Books> searchByTitle(@Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * 도서 제목 또는 저자명으로 검색 (페이징 및 정렬 지원)
+     *
+     * @param keyword 검색 키워드
+     * @param pageable 페이징 및 정렬 정보
+     * @return 도서 페이지
+     */
+    @Query("""
+        SELECT DISTINCT b FROM Books b
+        LEFT JOIN FETCH b.bookAuthors ba
+        LEFT JOIN FETCH ba.author a
+        WHERE b.title LIKE %:keyword%
+        OR a.name LIKE %:keyword%
+        """)
+    @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
+    Page<Books> searchByTitleOrAuthor(@Param("keyword") String keyword, Pageable pageable);
 }
 
 

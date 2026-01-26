@@ -4,40 +4,60 @@ import com.example.booklog.domain.library.books.dto.BookSearchResponse;
 import com.example.booklog.domain.search.dto.*;
 import com.example.booklog.domain.search.service.AuthorSearchService;
 import com.example.booklog.domain.search.service.BookSearchService;
+import com.example.booklog.domain.search.service.IntegratedSearchService;
 import com.example.booklog.domain.search.service.SearchKeywordService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * 통합 검색 API 컨트롤러
+ * - 통합 검색: /api/v1/search (GET)
  * - 도서 검색: /api/v1/search/books
  * - 작가 검색: /api/v1/search/authors
  * - 검색어 저장: /api/v1/search/keywords (POST)
  * - 최근 검색어 조회: /api/v1/search/recent (GET)
  * - 추천 검색어 조회: /api/v1/search/recommendations (GET)
- * - 통합 검색: /api/v1/search (추후 구현)
  */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/search")
 public class SearchController {
 
+    private final IntegratedSearchService integratedSearchService;
     private final BookSearchService bookSearchService;
     private final AuthorSearchService authorSearchService;
     private final SearchKeywordService searchKeywordService;
 
     /**
      * 도서 검색
-     * GET /api/v1/search/books?query={검색어}&page={페이지}&size={크기}
+     * GET /api/v1/search/books?query={검색어}&page={페이지}&size={크기}&sort={정렬}
+     *
+     * [정렬 옵션]
+     * - latest: 최신순 (출판일 내림차순) - 기본값
+     * - oldest: 오래된순 (출판일 오름차순)
+     * - title: 제목순 (가나다순)
+     * - author: 저자순 (첫 번째 저자 기준 가나다순)
+     *
+     * @param query 검색어 (필수)
+     * @param page 페이지 번호 (1부터 시작, 기본값: 1)
+     * @param size 페이지 크기 (기본값: 10)
+     * @param sort 정렬 기준 (기본값: latest)
+     * @return 도서 검색 결과
      */
     @GetMapping("/books")
     public BookSearchResponse searchBooks(
             @RequestParam String query,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "latest") String sort
     ) {
-        return bookSearchService.searchBooks(query, page, size);
+        BookSortType sortType = BookSortType.from(sort);
+        return bookSearchService.searchBooks(query, page, size, sortType);
     }
 
     /**
@@ -125,11 +145,46 @@ public class SearchController {
     }
 
     /**
-     * 통합 검색 (추후 구현)
-     * GET /api/v1/search?query={검색어}&page={페이지}&size={크기}
+     * 통합 검색 API
+     * GET /api/v1/search?query={검색어}&sort={정렬기준}
+     *
+     * [기능 설명]
+     * - 검색어에 대해 "작가"와 "도서"를 통합하여 조회
+     * - 전체 탭에서 사용되며, 각 영역별로 제한된 개수(5개)만 표시
+     * - 더 많은 결과를 보려면 개별 탭(/books, /authors)으로 이동
+     *
+     * [응답 구조]
+     * - authors: 작가 검색 결과 (요약 정보, 최대 5명)
+     * - books: 도서 검색 결과 (기본 정보, 최대 5권)
+     * - 각 영역의 totalCount로 전체 개수 파악 가능
+     *
+     * [캐시 정책]
+     * - Cache-Control: max-age=60 (60초)
+     * - 동일한 query + sort 조합에 대해 클라이언트 캐시 활용
+     *
+     * [경계 케이스]
+     * - 검색어가 없거나 공백인 경우: 400 Bad Request
+     * - 검색 결과가 없는 경우: 빈 배열과 totalCount=0 반환
+     * - 정렬 기준이 유효하지 않은 경우: 400 Bad Request
+     *
+     * @param query 검색어 (필수, 1~100자)
+     * @param sort 정렬 기준 (선택, latest|popular, 기본값: latest)
+     * @return 통합 검색 응답 (작가 + 도서)
      */
-    // TODO: 통합 검색 구현
-    // @GetMapping
-    // public IntegratedSearchResponse search(...)
+    @GetMapping
+    public ResponseEntity<IntegratedSearchResponse> search(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "latest") String sort
+    ) {
+        IntegratedSearchResponse response = integratedSearchService.search(query, sort);
+
+        // 캐시 헤더 설정 (60초)
+        CacheControl cacheControl = CacheControl.maxAge(60, TimeUnit.SECONDS)
+                .cachePublic();
+
+        return ResponseEntity.ok()
+                .cacheControl(cacheControl)
+                .body(response);
+    }
 }
 
