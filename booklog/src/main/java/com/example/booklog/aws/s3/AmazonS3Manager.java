@@ -9,12 +9,14 @@ import com.example.booklog.global.common.repository.UuidRepository;
 import com.example.booklog.global.config.AmazonConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
 @Slf4j
+@Profile("!local")
 @Component
 @RequiredArgsConstructor
 public class AmazonS3Manager {
