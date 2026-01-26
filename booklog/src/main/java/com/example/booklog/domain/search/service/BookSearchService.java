@@ -2,66 +2,159 @@ package com.example.booklog.domain.search.service;
 
 import com.example.booklog.domain.library.books.dto.BookSearchItemResponse;
 import com.example.booklog.domain.library.books.dto.BookSearchResponse;
+import com.example.booklog.domain.library.books.entity.Books;
+import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.books.service.BookImportService;
+import com.example.booklog.domain.search.dto.BookSortType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * 도서 검색 서비스
- * - 카카오 API를 통한 도서 검색 및 DB 업서트
+ * - 카카오 API를 통한 초기 데이터 임포트
+ * - DB 기반 검색 및 정렬 (최신순, 오래된순, 제목순, 저자순)
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BookSearchService {
 
     private final BookImportService bookImportService;
+    private final BooksRepository booksRepository;
 
     /**
-     * 도서 검색 및 업서트
+     * 도서 검색 (정렬 기능 지원)
+     *
+     * [검색 전략]
+     * 1. DB에서 검색 시도 (제목 LIKE 검색)
+     * 2. 결과가 없으면 카카오 API로 임포트
+     * 3. DB에서 재검색 (정렬 적용)
+     *
+     * [정렬 옵션]
+     * - latest: 최신순 (출판일 내림차순)
+     * - oldest: 오래된순 (출판일 오름차순)
+     * - title: 제목순 (가나다순)
+     * - author: 저자순 (첫 번째 저자 기준)
+     *
      * @param query 검색어
-     * @param page 페이지 번호
+     * @param page 페이지 번호 (1부터 시작)
      * @param size 페이지 크기
+     * @param sortType 정렬 기준 (기본값: latest)
      * @return 검색 결과
      */
-    public BookSearchResponse searchBooks(String query, int page, int size) {
-        // 기존 BookImportService의 검색 로직 활용
-        BookSearchResponse legacyResponse =
-                bookImportService.searchAndUpsert(query, page, size);
+    @Transactional
+    public BookSearchResponse searchBooks(String query, int page, int size, BookSortType sortType) {
+        log.info("도서 검색 요청 - query: {}, page: {}, size: {}, sort: {}",
+                 query, page, size, sortType.getValue());
 
-        // DTO 변환 (legacy -> search domain)
-        return convertToSearchResponse(legacyResponse);
-    }
+        // 입력 검증
+        if (query == null || query.trim().isEmpty()) {
+            return new BookSearchResponse(page, size, true, 0, List.of());
+        }
 
-    /**
-     * legacy DTO를 search domain DTO로 변환
-     */
-    private BookSearchResponse convertToSearchResponse(
-            BookSearchResponse legacyResponse) {
+        // 정렬 기준 생성
+        Sort sort = createSort(sortType);
+        Pageable pageable = PageRequest.of(page - 1, size, sort);
 
-        var items = legacyResponse.items().stream()
+        // 1. DB에서 검색
+        Page<Books> booksPage = booksRepository.searchByTitle(query.trim(), pageable);
+
+        // 2. 결과가 없으면 카카오 API로 임포트
+        if (booksPage.isEmpty()) {
+            log.info("DB에 결과 없음. 카카오 API로 임포트 시작 - query: {}", query);
+            bookImportService.searchAndUpsert(query, 1, 10); // 카카오 API는 최대 10개만 가져옴
+
+            // 3. 임포트 후 재검색
+            booksPage = booksRepository.searchByTitle(query.trim(), pageable);
+
+            if (booksPage.isEmpty()) {
+                log.info("임포트 후에도 검색 결과 없음 - query: {}", query);
+                return new BookSearchResponse(page, size, true, 0, List.of());
+            }
+        }
+
+        // 4. DTO 변환
+        List<BookSearchItemResponse> items = booksPage.getContent().stream()
                 .map(this::convertToSearchItem)
                 .toList();
 
-        return new BookSearchResponse(
-                legacyResponse.page(),
-                legacyResponse.size(),
-                legacyResponse.isEnd(),
-                legacyResponse.totalCount(),
-                items
-        );
+        boolean isEnd = booksPage.isLast();
+        long totalCount = booksPage.getTotalElements();
+
+        log.info("도서 검색 완료 - 총 {}권 중 {}권 조회", totalCount, items.size());
+
+        return new BookSearchResponse(page, size, isEnd, (int) totalCount, items);
     }
 
-    private BookSearchItemResponse convertToSearchItem(BookSearchItemResponse legacyItem) {
+    /**
+     * 도서 검색 (정렬 기준 없이 호출 시 기본값 latest 적용)
+     * 하위 호환성을 위한 오버로딩
+     */
+    public BookSearchResponse searchBooks(String query, int page, int size) {
+        return searchBooks(query, page, size, BookSortType.LATEST);
+    }
+
+    /**
+     * 정렬 기준에 따른 Sort 객체 생성
+     *
+     * @param sortType 정렬 기준
+     * @return Sort 객체
+     */
+    private Sort createSort(BookSortType sortType) {
+        return switch (sortType) {
+            case LATEST -> Sort.by(
+                Sort.Order.desc("publishedDate").nullsLast(),
+                Sort.Order.desc("id")
+            );
+            case OLDEST -> Sort.by(
+                Sort.Order.asc("publishedDate").nullsLast(),
+                Sort.Order.asc("id")
+            );
+            case TITLE -> Sort.by(
+                Sort.Order.asc("title")
+            );
+            case AUTHOR -> Sort.by(
+                Sort.Order.asc("bookAuthors.author.name"),
+                Sort.Order.asc("id")
+            );
+        };
+    }
+
+    /**
+     * Books 엔티티를 BookSearchItemResponse로 변환
+     */
+    private BookSearchItemResponse convertToSearchItem(Books book) {
+        // 저자명 추출 (displayOrder 순서대로)
+        List<String> authors = book.getBookAuthors().stream()
+                .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR)
+                .sorted((a, b) -> Integer.compare(a.getDisplayOrder(), b.getDisplayOrder()))
+                .map(ba -> ba.getAuthor().getName())
+                .toList();
+
+        // 역자명 추출
+        List<String> translators = book.getBookAuthors().stream()
+                .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.TRANSLATOR)
+                .sorted((a, b) -> Integer.compare(a.getDisplayOrder(), b.getDisplayOrder()))
+                .map(ba -> ba.getAuthor().getName())
+                .toList();
 
         return new BookSearchItemResponse(
-                legacyItem.bookId(),
-                legacyItem.title(),
-                legacyItem.thumbnailUrl(),
-                legacyItem.publisherName(),
-                legacyItem.isbn13(),
-                legacyItem.authors(),
-                legacyItem.translators(),
-                legacyItem.publishedDate()
+                book.getId(),
+                book.getTitle(),
+                book.getThumbnailUrl(),
+                book.getPublisherName(),
+                book.getIsbn13(),
+                authors,
+                translators,
+                book.getPublishedDate()
         );
     }
 }
