@@ -20,7 +20,9 @@ public interface BooklogReadFacade {
     AuthorView findAuthorDetail(Long userId, Long viewerId);
     BookView findBook(Long bookId);
     List<TagView> findTagsByPostId(Long postId);
+    List<TagView> findTagsByTagIds(List<Long> tagIds);
     boolean isBookmarkedByMe(Long userId, Long postId);
     Slice<BooklogPost> findFeedPostsSlice(BooklogFeedQuery query, Pageable pageable);
     BooklogRecommendationResponse buildRecommendations(Long postId);
+    void validateCreateRequest(Long userId, Long bookId);
 }

@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface BooklogPostRepository extends JpaRepository<BooklogPost, Long> {
@@ -30,6 +31,7 @@ public interface BooklogPostRepository extends JpaRepository<BooklogPost, Long> 
     // 특정 책에 대한 피드 목록
     Slice<BooklogPost> findAllByBookIdAndStatusOrderByCreatedAtDesc(Long bookId, BooklogStatus status, Pageable pageable);
 
+    Slice<BooklogPost> findAllByIdInAndStatusOrderByCreatedAtDesc(Collection<Long> ids, BooklogStatus status, Pageable pageable);
 
     // 조회 수 +1 증가
     @Modifying(clearAutomatically = true, flushAutomatically = true)
