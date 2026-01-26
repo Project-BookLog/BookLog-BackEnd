@@ -1,10 +1,12 @@
 package com.example.booklog.domain.library.shelves.service;
 
+import com.example.booklog.domain.library.books.entity.AuthorRole;
 import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.shelves.dto.*;
 import com.example.booklog.domain.library.shelves.entity.BookshelfItems;
 import com.example.booklog.domain.library.shelves.entity.Bookshelves;
+import com.example.booklog.domain.library.shelves.entity.UserBookSort;
 import com.example.booklog.domain.library.shelves.entity.UserBooks;
 import com.example.booklog.domain.library.shelves.repository.BookshelfItemsRepository;
 import com.example.booklog.domain.library.shelves.repository.BookshelvesRepository;
@@ -83,34 +85,96 @@ public class UserBooksService {
 
     /** 3) 저장 도서 목록 조회 /api/v1/user-books (전체) */
     @Transactional(readOnly = true)
-    public UserBookListResponse listAll(Long userId, Long shelfId, String status, String sort) {
+    public UserBookListResponse listAll(Long userId, Long shelfId, String status, UserBookSort sort) {
 
-        Sort s = switch (sort == null ? "LATEST" : sort) {
-            case "OLDEST" -> Sort.by(Sort.Direction.ASC, "createdAt");
-            case "TITLE"  -> Sort.by(Sort.Direction.ASC, "book.title");
-            case "AUTHOR" -> Sort.by(Sort.Direction.ASC, "book.title"); // TODO 확장
-            default       -> Sort.by(Sort.Direction.DESC, "createdAt");
+        // ✅ sort null 방지 + 기준 통일
+        UserBookSort sortKey = (sort == null ? UserBookSort.LATEST : sort);
+
+        // ✅ AUTHOR는 DB 정렬이 아니라 "자바 정렬"로 처리할 거라서 fallback만 둠
+        Sort s = switch (sortKey) {
+            case OLDEST -> Sort.by(Sort.Direction.ASC, "createdAt");
+            case TITLE  -> Sort.by(Sort.Direction.ASC, "book.title");
+            case AUTHOR -> Sort.by(Sort.Direction.DESC, "createdAt"); // fallback (실제로는 아래서 자바정렬)
+            default     -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
 
         long totalCount = userBooksRepository.countByFilter(userId, shelfId, status);
 
+        // ✅ 기본 조회 (book은 EntityGraph로 가져오는 상태)
         List<UserBooks> result = userBooksRepository.list(userId, shelfId, status, s);
 
+        // ✅ AUTHOR일 때만 "자바에서 정렬"
+        if (sortKey == UserBookSort.AUTHOR) {
+            result = result.stream()
+                    .sorted((a, b) -> {
+                        String aName = normalizeForSort(getPrimaryAuthorName(a));
+                        String bName = normalizeForSort(getPrimaryAuthorName(b));
+
+                        // 1) authorName ASC (null은 뒤로)
+                        if (aName == null && bName == null) return 0;
+                        if (aName == null) return 1;
+                        if (bName == null) return -1;
+
+                        int cmp = aName.compareTo(bName);
+                        if (cmp != 0) return cmp;
+
+                        // 2) 같은 authorName이면 최신순(createdAt DESC)
+                        // createdAt이 없으면 getId()로 바꿔도 됨
+                        return b.getCreatedAt().compareTo(a.getCreatedAt());
+                    })
+                    .toList();
+        }
+
         List<UserBookListItemResponse> items = result.stream()
-                .map(ub -> new UserBookListItemResponse(
-                        ub.getId(),
-                        ub.getStatus(),
-                        ub.getProgressPercent(),
-                        ub.getCurrentPage(),
-                        ub.getBook().getId(),
-                        ub.getBook().getTitle(),
-                        ub.getBook().getThumbnailUrl(),
-                        ub.getBook().getPublisherName()
-                ))
+                .map(ub -> {
+                    String authorName = getPrimaryAuthorName(ub);
+
+                    return new UserBookListItemResponse(
+                            ub.getId(),
+                            ub.getStatus(),
+                            ub.getProgressPercent(),
+                            ub.getCurrentPage(),
+                            ub.getBook().getId(),
+                            ub.getBook().getTitle(),
+                            ub.getBook().getThumbnailUrl(),
+                            ub.getBook().getPublisherName(),
+                            authorName
+                    );
+                })
                 .toList();
 
         return new UserBookListResponse(totalCount, items);
     }
+
+    /**
+     * ✅ 대표 저자명 1개만 뽑기
+     * - role=AUTHOR만
+     * - displayOrder 기준 (너 DB가 1부터 들어간다 했으니까 "작은 값 우선")
+     */
+    private String getPrimaryAuthorName(UserBooks ub) {
+        if (ub == null || ub.getBook() == null || ub.getBook().getBookAuthors() == null) {
+            return null;
+        }
+
+        return ub.getBook().getBookAuthors().stream()
+                .filter(ba -> ba.getRole() == AuthorRole.AUTHOR)
+                .sorted((x, y) -> Integer.compare(x.getDisplayOrder(), y.getDisplayOrder()))
+                .map(ba -> ba.getAuthor() != null ? ba.getAuthor().getName() : null)
+                .filter(name -> name != null && !name.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * ✅ 정렬용 normalize
+     * - 공백 제거 + 소문자 처리
+     */
+    private String normalizeForSort(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t.toLowerCase();
+    }
+
 
     /** 4) 저장 도서 삭제(전체/선택/서재내 전체/서재 선택 제거/상태별) /api/v1/user-books */
     @Transactional

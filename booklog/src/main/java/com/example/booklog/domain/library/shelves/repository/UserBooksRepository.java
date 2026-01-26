@@ -1,5 +1,6 @@
 package com.example.booklog.domain.library.shelves.repository;
 
+import com.example.booklog.domain.library.shelves.dto.UserBookListItemResponse;
 import com.example.booklog.domain.library.shelves.entity.UserBooks;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.*;
@@ -15,7 +16,11 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
 
     Optional<UserBooks> findByUser_IdAndId(Long userId, Long userBookId);
 
-    @EntityGraph(attributePaths = "book")
+    @EntityGraph(attributePaths = {
+            "book",
+            "book.bookAuthors",
+            "book.bookAuthors.author"
+    })
     @Query("""
     select ub
     from UserBooks ub
@@ -34,6 +39,57 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
             @Param("status") String status,
             Sort sort
     );
+
+    // ✅ AUTHOR 정렬 전용
+    // AUTHOR 정렬은 DB에서 정렬, 필요한 값만 DTO 조회
+    @EntityGraph(attributePaths = {
+            "book",
+            "book.bookAuthors",
+            "book.bookAuthors.author"
+    })
+    @Query("""
+    select new com.example.booklog.domain.library.shelves.dto.UserBookListItemResponse(
+        ub.id,
+        ub.status,
+        ub.progressPercent,
+        ub.currentPage,
+
+        b.id,
+        b.title,
+        b.thumbnailUrl,
+        b.publisherName,
+
+        a.name
+    )
+    from UserBooks ub
+    join ub.book b
+
+    left join b.bookAuthors ba
+        on ba.role = com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR
+        and ba.displayOrder = 1
+
+    left join ba.author a
+
+    where ub.user.id = :userId
+      and (:status is null or ub.status = :status)
+      and (:shelfId is null or exists (
+          select 1
+          from BookshelfItems bi
+          where bi.shelf.id = :shelfId
+            and bi.book.id = b.id
+      ))
+    order by
+        case when a.name is null then 1 else 0 end,
+        a.name asc,
+        ub.createdAt desc
+""")
+    List<UserBookListItemResponse> listOrderByAuthorAsc(
+            @Param("userId") Long userId,
+            @Param("shelfId") Long shelfId,
+            @Param("status") String status
+    );
+
+
 
     @Query("""
         select ub.book.id

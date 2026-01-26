@@ -1,6 +1,7 @@
 package com.example.booklog.domain.library.shelves.controller;
 
 import com.example.booklog.domain.library.shelves.dto.*;
+import com.example.booklog.domain.library.shelves.entity.UserBookSort;
 import com.example.booklog.domain.library.shelves.service.UserBooksService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -88,7 +89,7 @@ public class UserBooksController {
             @RequestParam(name = "status", required = false) String status,
 
             @Parameter(description = "정렬(선택). 기본 LATEST", example = "LATEST")
-            @RequestParam(name = "sort", required = false, defaultValue = "LATEST") String sort
+            @RequestParam(name = "sort", required = false, defaultValue = "LATEST") UserBookSort sort
     ) {
         return userBooksService.listAll(userId, shelfId, status, sort);
     }

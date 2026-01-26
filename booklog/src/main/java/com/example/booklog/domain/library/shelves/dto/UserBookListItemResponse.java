@@ -1,5 +1,6 @@
 package com.example.booklog.domain.library.shelves.dto;
 
+import com.example.booklog.domain.library.books.entity.BookAuthors;
 import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
 
 import java.time.LocalDate;
@@ -16,5 +17,6 @@ public record UserBookListItemResponse(
         Long bookId,
         String title,
         String thumbnailUrl,
-        String publisherName
+        String publisherName,
+        String authorName
 ) {}
