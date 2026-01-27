@@ -1,5 +1,6 @@
 package com.example.booklog.domain.users.entity;
 
+import com.example.booklog.global.auth.enums.Role;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -21,7 +22,7 @@ public class AuthAccounts {
     @Column(name = "id")
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_auth_accounts_user"))
     private Users user;
 
@@ -34,6 +35,15 @@ public class AuthAccounts {
 
     @Column(name = "email", length = 255)
     private String email;
+
+    // ✅ 추가: LOCAL 로그인용 비밀번호
+    @Column(name = "password", length = 255)
+    private String password;
+
+    // ✅ 추가: 권한/역할 관리
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", length = 20, nullable = false)
+    private Role role = Role.ROLE_USER;
 
     @Column(name = "display_name", length = 100)
     private String displayName;
@@ -49,13 +59,16 @@ public class AuthAccounts {
 
     @Builder
     public AuthAccounts(Users user, AuthProvider provider, String providerId,
-                        String email, String displayName, String profileImageUrl) {
+                        String email, String displayName, String profileImageUrl,
+                        String password, Role role) {
         this.user = user;
         this.provider = provider;
         this.providerId = providerId;
         this.email = email;
         this.displayName = displayName;
         this.profileImageUrl = profileImageUrl;
+        this.password = password;
+        this.role = role != null ? role : Role.ROLE_USER;
         this.connectedAt = LocalDateTime.now();
         this.lastLoginAt = LocalDateTime.now();
     }
@@ -68,6 +81,14 @@ public class AuthAccounts {
         this.email = email;
         this.displayName = displayName;
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public void updatePassword(String newPassword) {
+        this.password = newPassword;
+    }
+
+    public void updateRole(Role role) {
+        this.role = role;
     }
 }
 
