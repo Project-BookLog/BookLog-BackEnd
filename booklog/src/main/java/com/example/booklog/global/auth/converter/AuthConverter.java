@@ -37,16 +37,17 @@ public class AuthConverter {
     // AuthAccounts, AccessToken -> LoginDTO
     public static AuthResDTO.LoginDTO toLoginDTO(AuthAccounts account, String accessToken) {
         return AuthResDTO.LoginDTO.builder()
-                .userId(account.getUser().getId())
                 .accessToken(accessToken)
+                .tokenType("Bearer")
+                .expiresIn(7200L)  // 2시간 (application.yaml의 설정과 동일)
                 .build();
     }
 
     // AuthAccounts -> JoinDTO
     public static AuthResDTO.JoinDTO toJoinDTO(AuthAccounts account) {
         return AuthResDTO.JoinDTO.builder()
-                .userId(account.getUser().getId())
                 .email(account.getEmail())
+                .message("회원가입이 완료되었습니다. 로그인해주세요.")
                 .build();
     }
 }
