@@ -50,3 +50,9 @@ cloud:
     credentials:
       accessKey: ${AWS_ACTION_ACCESS_KEY_ID}
       secretKey: ${AWS_ACTION_SECRET_ACCESS_KEY}
+
+jwt:
+  token:
+    secretKey: ${JWT_SECRET_KEY}
+    expiration:
+      access: 7200000
