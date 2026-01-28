@@ -34,12 +34,13 @@ public class AuthConverter {
                 .build();
     }
 
-    // AuthAccounts, AccessToken -> LoginDTO
-    public static AuthResDTO.LoginDTO toLoginDTO(AuthAccounts account, String accessToken) {
+    // AuthAccounts, AccessToken, RefreshToken -> LoginDTO
+    public static AuthResDTO.LoginDTO toLoginDTO(AuthAccounts account, String accessToken, String refreshToken, Long expiresIn) {
         return AuthResDTO.LoginDTO.builder()
                 .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
-                .expiresIn(7200L)  // 2시간 (application.yaml의 설정과 동일)
+                .expiresIn(expiresIn)
                 .build();
     }
 

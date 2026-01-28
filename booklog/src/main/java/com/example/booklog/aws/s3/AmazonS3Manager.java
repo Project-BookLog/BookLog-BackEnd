@@ -50,4 +50,5 @@ public class AmazonS3Manager {
     public String generateBooklogKeyName(Uuid uuid) {
         return amazonConfig.getBooklogPath() + '/' + uuid.getUuid();
     }
+
 }
