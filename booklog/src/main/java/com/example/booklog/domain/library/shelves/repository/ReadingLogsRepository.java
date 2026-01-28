@@ -31,37 +31,33 @@ public interface ReadingLogsRepository extends JpaRepository<ReadingLogs, Long> 
     }
 
     @Query("""
-        select
-            rl.readDate as readDate,
-            b.thumbnailUrl as thumbnailUrl
-        from ReadingLogs rl
-            join rl.userBook ub
-            join ub.user u
-            join ub.book b
-        where u.id = :userId
-          and rl.readDate >= :startDate
-          and rl.readDate < :endDate
-          and b.thumbnailUrl is not null
-          and rl.createdAt = (
-              select max(rl2.createdAt)
-              from ReadingLogs rl2
-                  join rl2.userBook ub2
-              where ub2.user.id = :userId
-                and rl2.readDate = rl.readDate
-          )
-          and rl.id = (
-              select max(rl3.id)
-              from ReadingLogs rl3
-                  join rl3.userBook ub3
-              where ub3.user.id = :userId
-                and rl3.readDate = rl.readDate
-                and rl3.createdAt = rl.createdAt
-          )
-        order by rl.readDate asc
-    """)
+    select
+        rl.readDate as readDate,
+        b.thumbnailUrl as thumbnailUrl
+    from ReadingLogs rl
+        join rl.userBook ub
+        join ub.book b
+    where ub.user.id = :userId
+      and rl.readDate >= :startDate
+      and rl.readDate < :endDate
+      and b.thumbnailUrl is not null
+      and not exists (
+          select 1
+          from ReadingLogs rl2
+              join rl2.userBook ub2
+          where ub2.user.id = :userId
+            and rl2.readDate = rl.readDate
+            and (
+                rl2.createdAt > rl.createdAt
+                or (rl2.createdAt = rl.createdAt and rl2.id > rl.id)
+            )
+      )
+    order by rl.readDate asc
+""")
     List<CalendarDayThumbnailRow> findCalendarDayThumbnails(
             @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
 }
