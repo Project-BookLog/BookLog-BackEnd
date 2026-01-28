@@ -47,5 +47,8 @@ public class AmazonS3Manager {
         return amazonConfig.getProfilePath() + '/' + uuid.getUuid();
     }
 
+    public String generateBooklogKeyName(Uuid uuid) {
+        return amazonConfig.getBooklogPath() + '/' + uuid.getUuid();
+    }
 
 }

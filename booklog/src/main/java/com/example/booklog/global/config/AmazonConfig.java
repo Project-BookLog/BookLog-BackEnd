@@ -39,6 +39,9 @@ public class AmazonConfig {
     @Value("${cloud.aws.s3.path.profile}") // 추가된 path 가져오기
     private String profilePath;
 
+    @Value("${cloud.aws.s3.path.booklog}")
+    private String booklogPath;
+
     @PostConstruct
     public void init() {
         this.awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
