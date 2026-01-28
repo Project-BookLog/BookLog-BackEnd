@@ -44,6 +44,7 @@ cloud:
       path:
         review : review
         profile : profile
+        booklog: booklog
     region:
       static: ap-northeast-2
     stack:

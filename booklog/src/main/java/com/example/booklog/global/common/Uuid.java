@@ -3,6 +3,8 @@ package com.example.booklog.global.common;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Builder
 @Getter
@@ -16,4 +18,10 @@ public class Uuid extends BaseEntity{
 
     @Column(unique = true)
     private String uuid;
+
+    public static Uuid create() {
+        return Uuid.builder()
+                .uuid(UUID.randomUUID().toString())
+                .build();
+    }
 }
