@@ -8,14 +8,15 @@ public class AuthResDTO {
     // 회원가입
     @Builder
     public record JoinDTO(
-            Long userId,
-            String email
+            String email,
+            String message
     ){}
 
     // 로그인
     @Builder
     public record LoginDTO(
-            Long userId,
-            String accessToken
+            String accessToken,
+            String tokenType,
+            Long expiresIn
     ){}
 }
