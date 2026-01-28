@@ -21,18 +21,36 @@ public class JwtUtil {
 
     private final SecretKey secretKey;
     private final Duration accessExpiration;
+    private final Duration refreshExpiration;
 
     public JwtUtil(
             @Value("${jwt.token.secretKey}") String secret,
-            @Value("${jwt.token.expiration.access}") Long accessExpiration
+            @Value("${jwt.token.expiration.access}") Long accessExpiration,
+            @Value("${jwt.token.expiration.refresh}") Long refreshExpiration
     ) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessExpiration = Duration.ofMillis(accessExpiration);
+        this.refreshExpiration = Duration.ofMillis(refreshExpiration);
     }
 
     // AccessToken 생성
     public String createAccessToken(CustomUserDetails user) {
         return createToken(user, accessExpiration);
+    }
+
+    // RefreshToken 생성
+    public String createRefreshToken(CustomUserDetails user) {
+        return createToken(user, refreshExpiration);
+    }
+
+    // RefreshToken 만료 시간 가져오기
+    public Duration getRefreshExpiration() {
+        return refreshExpiration;
+    }
+
+    // AccessToken 만료 시간 가져오기 (밀리초)
+    public Long getAccessExpirationMillis() {
+        return accessExpiration.toMillis();
     }
 
     /** 토큰에서 이메일 가져오기

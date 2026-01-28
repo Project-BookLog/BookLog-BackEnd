@@ -34,8 +34,7 @@ public class SecurityConfig {
     private final String[] allowUris = {
             "/",
             "/health",
-            "/sign-up",
-            "/login",
+            "/api/v1/auth/**",
             "/swagger-ui/**",
             "/swagger-resources/**",
             "/v3/api-docs/**",
