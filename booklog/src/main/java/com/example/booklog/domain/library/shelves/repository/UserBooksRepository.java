@@ -87,7 +87,7 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
     List<UserBookListItemResponse> listOrderByAuthorAsc(
             @Param("userId") Long userId,
             @Param("shelfId") Long shelfId,
-            @Param("status") String status
+            @Param("status") ReadingStatus status
     );
 
 

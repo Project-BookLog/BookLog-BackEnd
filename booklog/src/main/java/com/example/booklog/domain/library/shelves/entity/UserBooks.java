@@ -35,6 +35,7 @@ public class UserBooks extends BaseEntity {
     @JoinColumn(name = "book_id", nullable = false, foreignKey = @ForeignKey(name = "fk_user_books_book"))
     private Books book;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private ReadingStatus status; // TO_READ/READING/DONE/STOPPED
 
@@ -51,6 +52,7 @@ public class UserBooks extends BaseEntity {
     @Column(name = "end_date")
     private LocalDate endDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "format", length = 20)
     private BookFormat format; // PAPER/EBOOK/AUDIO 등
 

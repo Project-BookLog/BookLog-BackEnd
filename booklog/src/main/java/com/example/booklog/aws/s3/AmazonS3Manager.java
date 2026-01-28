@@ -46,4 +46,6 @@ public class AmazonS3Manager {
     public String generateProfileKeyName(Uuid uuid) {
         return amazonConfig.getProfilePath() + '/' + uuid.getUuid();
     }
+
+
 }

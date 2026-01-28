@@ -29,6 +29,7 @@ public class Bookshelves extends BaseEntity {
     @Column(name = "is_public", nullable = false)
     private boolean isPublic;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "sort_order", length = 20, nullable = false)
     private UserBookSort sortOrder; // ERD: VARCHAR(20)
 
