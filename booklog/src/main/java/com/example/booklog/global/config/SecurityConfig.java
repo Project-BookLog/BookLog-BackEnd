@@ -4,9 +4,9 @@ import com.example.booklog.global.auth.security.AuthenticationEntryPointImpl;
 import com.example.booklog.global.auth.security.CustomUserDetailsService;
 import com.example.booklog.global.auth.security.JwtAuthFilter;
 import com.example.booklog.global.auth.security.JwtUtil;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,13 +21,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @EnableWebSecurity
 @Configuration
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService customUserDetailsService;
 
+    public SecurityConfig(@Lazy JwtUtil jwtUtil, @Lazy CustomUserDetailsService customUserDetailsService) {
+        this.jwtUtil = jwtUtil;
+        this.customUserDetailsService = customUserDetailsService;
+    }
+
     private final String[] allowUris = {
+            "/",
+            "/health",
             "/sign-up",
             "/login",
             "/swagger-ui/**",
