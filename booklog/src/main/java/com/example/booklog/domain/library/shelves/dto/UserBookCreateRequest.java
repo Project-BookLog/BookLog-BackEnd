@@ -7,5 +7,5 @@ import jakarta.validation.constraints.NotNull;
 public record UserBookCreateRequest(
         @NotNull Long bookId,
         @Nullable Long shelfId,
-        ReadingStatus status // TO_READ/READING/DONE/STOPPED
+        ReadingStatus status // TO_READ/READING/COMPLETED/STOPPED
 ) {}
