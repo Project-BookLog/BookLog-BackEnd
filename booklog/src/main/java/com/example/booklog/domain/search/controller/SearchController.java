@@ -158,7 +158,7 @@ public class SearchController {
      * - books: 도서 검색 결과 (기본 정보, 최대 5권)
      * - 각 영역의 totalCount로 전체 개수 파악 가능
      *
-     * [캐시 정책]
+     * [캐시 정책]  
      * - Cache-Control: max-age=60 (60초)
      * - 동일한 query + sort 조합에 대해 클라이언트 캐시 활용
      *

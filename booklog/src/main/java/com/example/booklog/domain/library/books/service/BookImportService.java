@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -33,7 +34,7 @@ public class BookImportService {
     /**
      * 카카오 도서 검색 -> books/authors/book_authors 업서트 -> 검색 응답 반환
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public BookSearchResponse searchAndUpsert(String query, int page, int size) {
         String q = normalize(query);
         if (q.isBlank()) {
