@@ -37,7 +37,7 @@ public class UserBooks extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
-    private ReadingStatus status; // TO_READ/READING/DONE/STOPPED
+    private ReadingStatus status; // TO_READ/READING/COMPLETED/STOPPED
 
     @Column(name = "progress_percent", nullable = false)
     private int progressPercent;
