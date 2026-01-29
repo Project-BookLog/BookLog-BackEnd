@@ -7,7 +7,9 @@ import com.example.booklog.global.auth.security.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -44,26 +46,45 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // ✅ CORS 활성화 (WebMvcConfigurer만으로는 Security에서 preflight가 막힐 수 있음)
+                .cors(Customizer.withDefaults())
+
                 .authorizeHttpRequests(requests -> requests
+                        // ✅ Preflight(OPTIONS) 요청은 인증 없이 통과시켜야 CORS 헤더가 정상적으로 내려감
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 허용 URI는 인증 없이 접근 가능
                         .requestMatchers(allowUris).permitAll()
+
+                        // 관리자 전용
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                        // 그 외는 인증 필요
                         .anyRequest().authenticated()
                 )
+
                 // 폼로그인 비활성화
                 .formLogin(AbstractHttpConfigurer::disable)
+
                 // 세션 관리 - JWT 기반이므로 STATELESS로 설정
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+
                 // JwtAuthFilter를 UsernamePasswordAuthenticationFilter 앞에 추가
                 .addFilterBefore(jwtAuthFilter(), UsernamePasswordAuthenticationFilter.class)
+
                 .csrf(AbstractHttpConfigurer::disable)
+
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout")
                         .permitAll()
-                ).exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint()))
-        ;
+                )
+
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint())
+                );
 
         return http.build();
     }
@@ -87,4 +108,6 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
+
+
 }
