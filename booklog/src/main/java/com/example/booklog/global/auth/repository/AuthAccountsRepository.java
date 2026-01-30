@@ -1,4 +1,4 @@
-package com.example.booklog.global.auth.Repository;
+package com.example.booklog.global.auth.repository;
 
 import com.example.booklog.domain.users.entity.AuthAccounts;
 import com.example.booklog.domain.users.entity.AuthProvider;

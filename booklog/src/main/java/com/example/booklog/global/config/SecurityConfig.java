@@ -1,9 +1,7 @@
 package com.example.booklog.global.config;
 
-import com.example.booklog.global.auth.security.AuthenticationEntryPointImpl;
-import com.example.booklog.global.auth.security.CustomUserDetailsService;
-import com.example.booklog.global.auth.security.JwtAuthFilter;
-import com.example.booklog.global.auth.security.JwtUtil;
+import com.example.booklog.global.auth.security.*;
+import com.example.booklog.global.auth.service.CustomOAuth2UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -25,10 +23,20 @@ public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService customUserDetailsService;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
 
-    public SecurityConfig(@Lazy JwtUtil jwtUtil, @Lazy CustomUserDetailsService customUserDetailsService) {
+    public SecurityConfig(@Lazy JwtUtil jwtUtil,
+                          @Lazy CustomUserDetailsService customUserDetailsService,
+                          @Lazy CustomOAuth2UserService customOAuth2UserService,
+                          @Lazy OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler,
+                          @Lazy OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler) {
         this.jwtUtil = jwtUtil;
         this.customUserDetailsService = customUserDetailsService;
+        this.customOAuth2UserService = customOAuth2UserService;
+        this.oAuth2AuthenticationSuccessHandler = oAuth2AuthenticationSuccessHandler;
+        this.oAuth2AuthenticationFailureHandler = oAuth2AuthenticationFailureHandler;
     }
 
     private final String[] allowUris = {
@@ -38,7 +46,9 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-resources/**",
             "/v3/api-docs/**",
-            "/api/v1/booklogs/tags/options"
+            "/api/v1/booklogs/tags/options",
+            "/login/oauth2/**",
+            "/oauth2/**"
     };
 
     @Bean
@@ -51,6 +61,14 @@ public class SecurityConfig {
                 )
                 // 폼로그인 비활성화
                 .formLogin(AbstractHttpConfigurer::disable)
+                // OAuth2 로그인 설정
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                        )
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler)
+                )
                 // 세션 관리 - JWT 기반이므로 STATELESS로 설정
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

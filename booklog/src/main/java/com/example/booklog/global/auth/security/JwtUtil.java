@@ -43,6 +43,30 @@ public class JwtUtil {
         return createToken(user, refreshExpiration);
     }
 
+    // OAuth2 로그인용 AccessToken 생성 (이메일로)
+    public String generateAccessToken(String email) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(email)
+                .claim("email", email)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(accessExpiration)))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    // OAuth2 로그인용 RefreshToken 생성 (이메일로)
+    public String generateRefreshToken(String email) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(email)
+                .claim("email", email)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(refreshExpiration)))
+                .signWith(secretKey)
+                .compact();
+    }
+
     // RefreshToken 만료 시간 가져오기
     public Duration getRefreshExpiration() {
         return refreshExpiration;
