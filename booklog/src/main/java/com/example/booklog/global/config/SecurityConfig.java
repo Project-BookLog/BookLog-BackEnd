@@ -50,7 +50,8 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/api/v1/booklogs/tags/options",
             "/login/oauth2/**",
-            "/oauth2/**"
+            "/oauth2/**",
+            "/oauth/callback"
     };
 
     @Bean
