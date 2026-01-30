@@ -22,6 +22,7 @@ public enum ErrorStatus implements BaseErrorCode {
     FILE_REQUIRED(HttpStatus.BAD_REQUEST, "F001", "파일이 필요합니다."),
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "F002", "파일 용량이 너무 큽니다."),
     UNSUPPORTED_IMAGE_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "F003", "지원하는 파일 양식이 아닙니다."),
+    FILE_UPLOAD_FAILED(HttpStatus.EXPECTATION_FAILED, "F004", "파일업로드에 실패했습니다."),
 
     // =========================
     // [Author / Enrichment / Search]

@@ -9,7 +9,6 @@ import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
 import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import com.example.booklog.global.common.repository.UuidRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,7 +19,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
-@Profile("!local")
 public class MeAvatarService {
 
     private final UsersRepository usersRepository;
