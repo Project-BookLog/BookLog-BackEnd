@@ -10,6 +10,8 @@ import com.example.booklog.domain.search.repository.RecommendedKeywordRepository
 import com.example.booklog.domain.search.repository.SearchKeywordRepository;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.domain.users.repository.UsersRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -50,7 +52,7 @@ public class SearchKeywordService {
     public void saveSearchKeyword(Long userId, String keyword) {
         // 사용자 조회
         Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
 
         // 검색어 유효성 검증
         String trimmedKeyword = validateAndTrimKeyword(keyword);
@@ -119,13 +121,13 @@ public class SearchKeywordService {
      */
     private String validateAndTrimKeyword(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
-            throw new IllegalArgumentException("검색어는 필수입니다.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_REQUIRED);
         }
 
         String trimmed = keyword.trim();
 
         if (trimmed.length() > 100) {
-            throw new IllegalArgumentException("검색어는 100자 이내로 입력해주세요.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_TOO_LONG);
         }
 
         return trimmed;

@@ -12,6 +12,8 @@ import com.example.booklog.domain.booklog.view.PostImageView;
 import com.example.booklog.domain.booklog.view.TagView;
 import com.example.booklog.domain.tags.entity.TagCategory;
 import com.example.booklog.domain.tags.repository.TagsRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -62,27 +64,27 @@ public class BooklogPostServiceImpl implements BooklogPostService {
 
     private void validateBooklogTagRules(List<Long> tagIds) {
         if (tagIds == null || tagIds.isEmpty()) {
-            throw new IllegalArgumentException("태그는 최소 1개 이상 선택해야 합니다.");
+            throw new GeneralException(ErrorStatus.TAG_MIN_ONE_REQUIRED);
         }
 
         var tags = tagsRepository.findAllById(tagIds);
 
         if (tags.size() != tagIds.size()) {
-            throw new IllegalArgumentException("존재하지 않는 태그가 포함되어 있습니다.");
+            throw new GeneralException(ErrorStatus.TAG_NOT_FOUND_INCLUDED);
         }
 
         long moodCount = tags.stream().filter(t -> t.getCategory() == TagCategory.MOOD).count();
         long styleCount = tags.stream().filter(t -> t.getCategory() == TagCategory.STYLE).count();
         long immersionCount = tags.stream().filter(t -> t.getCategory() == TagCategory.IMMERSION).count();
 
-        if (moodCount < 1 || moodCount > 2) throw new IllegalArgumentException("MOOD 태그는 1~2개 선택해야 합니다.");
-        if (styleCount < 1 || styleCount > 2) throw new IllegalArgumentException("STYLE 태그는 1~2개 선택해야 합니다.");
-        if (immersionCount != 1) throw new IllegalArgumentException("IMMERSION 태그는 반드시 1개 선택해야 합니다.");
+        if (moodCount < 1 || moodCount > 2) throw new GeneralException(ErrorStatus.MOOD_TAG_COUNT_INVALID);
+        if (styleCount < 1 || styleCount > 2) throw new GeneralException(ErrorStatus.STYLE_TAG_COUNT_INVALID);
+        if (immersionCount != 1) throw new GeneralException(ErrorStatus.IMMERSION_TAG_COUNT_INVALID);
     }
 
     private void validateImageLimit(List<String> imageUrls) {
         if (imageUrls != null && imageUrls.size() > 8) {
-            throw new IllegalArgumentException("이미지는 최대 8장까지 가능합니다.");
+            throw new GeneralException(ErrorStatus.IMAGE_MAX_8);
         }
     }
 
@@ -198,7 +200,7 @@ public class BooklogPostServiceImpl implements BooklogPostService {
     public BooklogDetailResponse getDetail(Long userId, Long postId) {
 
         BooklogPost post = postRepository.findByIdAndStatus(postId, BooklogStatus.PUBLISHED)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.POST_NOT_FOUND));
 
         // 조회수 +1
         postRepository.increaseViewCount(postId, BooklogStatus.PUBLISHED);
@@ -252,10 +254,10 @@ public class BooklogPostServiceImpl implements BooklogPostService {
     public void softDelete(Long userId, Long postId) {
 
         BooklogPost post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.POST_NOT_FOUND));
 
         if (!post.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("삭제 권한이 없습니다.");
+            throw new GeneralException(ErrorStatus.POST_NOT_FOUND);
         }
 
         int updated = postRepository.softDelete(
@@ -266,7 +268,7 @@ public class BooklogPostServiceImpl implements BooklogPostService {
         );
 
         if (updated == 0) {
-            throw new IllegalArgumentException("이미 삭제되었거나 삭제할 수 없습니다.");
+            throw new GeneralException(ErrorStatus.POST_ALREADY_DELETED_OR_CANNOT_DELETE);
         }
     }
 
@@ -276,7 +278,7 @@ public class BooklogPostServiceImpl implements BooklogPostService {
 
         // 1) 게시글 존재 + PUBLISHED 확인
         BooklogPost post = postRepository.findByIdAndStatus(postId, BooklogStatus.PUBLISHED)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.POST_NOT_FOUND));
 
         // 2) 이미 북마크한 row가 있는지 확인
         var existing = bookmarkRepository.findByUserIdAndPostId(userId, postId);

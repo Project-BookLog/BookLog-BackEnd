@@ -1,5 +1,7 @@
 package com.example.booklog.domain.search.entity;
 
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -64,11 +66,11 @@ public class RecommendedKeyword {
      */
     private void validateKeyword(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
-            throw new IllegalArgumentException("검색어는 필수입니다.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_REQUIRED);
         }
 
         if (keyword.trim().length() > 100) {
-            throw new IllegalArgumentException("검색어는 100자 이내로 입력해주세요.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_TOO_LONG);
         }
     }
 

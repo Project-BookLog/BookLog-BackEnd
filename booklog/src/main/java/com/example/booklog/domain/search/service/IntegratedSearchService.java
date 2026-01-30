@@ -4,6 +4,8 @@ import com.example.booklog.domain.library.books.dto.BookSearchItemResponse;
 import com.example.booklog.domain.library.books.dto.BookSearchResponse;
 import com.example.booklog.domain.search.dto.AuthorSearchResponse;
 import com.example.booklog.domain.search.dto.IntegratedSearchResponse;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,7 +65,7 @@ public class IntegratedSearchService {
      * @param query 검색어 (필수, 1~100자)
      * @param sort 정렬 기준 (선택, latest, popular 등)
      * @return 통합 검색 응답
-     * @throws IllegalArgumentException 검색어가 유효하지 않은 경우
+     * @throws GeneralException 검색어가 유효하지 않은 경우
      */
     public IntegratedSearchResponse search(String query, String sort) {
         log.info("통합 검색 요청 - query: {}, sort: {}", query, sort);
@@ -131,21 +133,21 @@ public class IntegratedSearchService {
      *
      * @param query 검색어
      * @param sort 정렬 기준
-     * @throws IllegalArgumentException 입력값이 유효하지 않은 경우
+     * @throws GeneralException 검색어가 유효하지 않은 경우
      */
     private void validateSearchInput(String query, String sort) {
         // 검색어 검증
         if (query == null || query.trim().isEmpty()) {
-            throw new IllegalArgumentException("검색어는 필수입니다.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_REQUIRED);
         }
 
         if (query.trim().length() > 100) {
-            throw new IllegalArgumentException("검색어는 100자 이내로 입력해주세요.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_TOO_LONG);
         }
 
         // 정렬 기준 검증 (향후 확장)
         if (sort != null && !isValidSortType(sort)) {
-            throw new IllegalArgumentException("유효하지 않은 정렬 기준입니다: " + sort);
+            throw new GeneralException(ErrorStatus.SORT_INVALID);
         }
     }
 

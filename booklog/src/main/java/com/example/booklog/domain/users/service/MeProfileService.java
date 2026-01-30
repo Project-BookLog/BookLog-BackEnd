@@ -22,7 +22,7 @@ public class MeProfileService {
     @Transactional(readOnly = true)
     public MeProfileResponse getMyProfile(Long userId) {
         Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("USER_NOT_FOUND"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
 
         UserSettings settings = userSettingsRepository.findById(userId)
                 .orElseGet(() -> null);

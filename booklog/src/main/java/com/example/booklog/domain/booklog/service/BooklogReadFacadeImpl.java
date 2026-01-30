@@ -18,6 +18,8 @@ import com.example.booklog.domain.booklog.view.SimilarBookAggView;
 import com.example.booklog.domain.booklog.view.TagView;
 import com.example.booklog.domain.tags.entity.Tags;
 import com.example.booklog.domain.tags.repository.TagsRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -142,7 +144,7 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
     public BooklogRecommendationResponse buildRecommendations(Long postId) {
 
         BooklogPost base = postRepository.findByIdAndStatus(postId, BooklogStatus.PUBLISHED)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.POST_NOT_FOUND));
 
         // 1) base post의 tagIds
         List<TagView> baseTags = findTagsByPostId(postId);
@@ -198,10 +200,10 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
     @Override
     public void validateCreateRequest(Long userId, Long bookId) {
         if (!userReadPort.existsById(userId)) {
-            throw new IllegalArgumentException("존재하지 않는 사용자입니다. userId=" + userId);
+            throw new GeneralException(ErrorStatus.USER_NOT_FOUND);
         }
         if (!bookReadPort.existsById(bookId)) {
-            throw new IllegalArgumentException("존재하지 않는 책입니다. bookId=" + bookId);
+            throw new GeneralException(ErrorStatus.BOOK_NOT_FOUND);
         }
     }
 

@@ -3,6 +3,8 @@ package com.example.booklog.domain.library.shelves.entity;
 import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.global.common.BaseEntity;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -82,7 +84,7 @@ public class UserBooks extends BaseEntity {
     아래 메소드 3개는 사용자의 페이지 입력관련 메소드
      */
     public void updatePageCountSnapshot(Integer totalPage) {
-        if (totalPage == null || totalPage < 1) throw new IllegalArgumentException("총 페이지는 1 이상이어야 합니다.");
+        if (totalPage == null || totalPage < 1) throw new GeneralException(ErrorStatus.TOTAL_PAGE_INVALID);
         this.pageCountSnapshot = totalPage;
         recalcProgressPercent();
     }
