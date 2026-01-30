@@ -6,10 +6,12 @@ import com.example.booklog.domain.search.service.AuthorSearchService;
 import com.example.booklog.domain.search.service.BookSearchService;
 import com.example.booklog.domain.search.service.IntegratedSearchService;
 import com.example.booklog.domain.search.service.SearchKeywordService;
+import com.example.booklog.global.auth.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.concurrent.TimeUnit;
@@ -91,16 +93,16 @@ public class SearchController {
      * - 동일 검색어가 이미 존재하면 삭제 후 재생성 (최신순 유지)
      * - 최대 10개 제한, 초과 시 가장 오래된 검색어 삭제
      *
-     * @param userId 사용자 ID (임시로 @RequestParam 사용, 추후 인증 적용 시 @AuthenticationPrincipal 등으로 변경)
+     * @param userDetails 인증된 사용자 정보 (JWT 토큰에서 추출)
      * @param request 검색어 저장 요청
      */
     @PostMapping("/keywords")
     @ResponseStatus(HttpStatus.CREATED)
     public void saveSearchKeyword(
-            @RequestParam Long userId, // TODO: 인증 구현 후 변경 필요
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody SearchKeywordSaveRequest request
     ) {
-        searchKeywordService.saveSearchKeyword(userId, request.getKeyword());
+        searchKeywordService.saveSearchKeyword(userDetails.getUserId(), request.getKeyword());
     }
 
     /**
@@ -115,14 +117,14 @@ public class SearchController {
      * - 최신순 정렬
      * - 최대 10개
      *
-     * @param userId 사용자 ID (임시로 @RequestParam 사용, 추후 인증 적용 시 변경)
+     * @param userDetails 인증된 사용자 정보 (JWT 토큰에서 추출)
      * @return 최근 검색어 목록
      */
     @GetMapping("/recent")
     public RecentSearchResponse getRecentSearches(
-            @RequestParam Long userId // TODO: 인증 구현 후 변경 필요
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return searchKeywordService.getRecentSearches(userId);
+        return searchKeywordService.getRecentSearches(userDetails.getUserId());
     }
 
     /**
