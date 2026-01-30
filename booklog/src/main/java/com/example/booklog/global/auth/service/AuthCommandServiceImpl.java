@@ -2,7 +2,7 @@ package com.example.booklog.global.auth.service;
 
 import com.example.booklog.domain.users.entity.AuthAccounts;
 import com.example.booklog.domain.users.entity.AuthProvider;
-import com.example.booklog.global.auth.Repository.AuthAccountsRepository;
+import com.example.booklog.global.auth.repository.AuthAccountsRepository;
 import com.example.booklog.global.auth.converter.AuthConverter;
 import com.example.booklog.global.auth.dto.AuthReqDTO;
 import com.example.booklog.global.auth.dto.AuthResDTO;
