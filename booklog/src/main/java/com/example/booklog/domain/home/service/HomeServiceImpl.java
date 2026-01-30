@@ -3,9 +3,7 @@ package com.example.booklog.domain.home.service;
 import com.example.booklog.domain.home.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -13,13 +11,20 @@ import java.util.stream.Collectors;
 /**
  * 홈 화면 데이터 제공 서비스 구현체
  *
- * PM 제공 데이터 기반으로 구성하되,
- * 실제 도서 메타데이터는 BookMetadataService를 통해 DB/카카오 API에서 조회
+ * PM 제공 데이터 기반으로 구성
+ *
+ * [현재 구현 방식]
+ * - 하드코딩된 20개 도서 목록 반환
+ * - DB에서 메타데이터 조회 (저자, 출판사, 이미지)
+ * - DB에 데이터 없으면 null로 반환
+ *
+ * [추후 개선 예정]
+ * - Redis 캐싱
+ * - 카카오 API 비동기 호출
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class HomeServiceImpl implements HomeService {
 
     private final BookMetadataService bookMetadataService;
@@ -72,14 +77,13 @@ public class HomeServiceImpl implements HomeService {
     }
 
     @Override
-    @Cacheable(value = "homeBooks", key = "'home:all'")
     public HomeResponse getHomeData() {
         log.info("홈 화면 데이터 조회 시작");
 
         // 1. 모든 도서 정보 수집
         List<BookMetadataService.BookInfo> allBookInfos = collectAllBookInfos();
 
-        // 2. 일괄 조회 (DB 쿼리 최적화)
+        // 2. 일괄 조회 (DB 쿼리 최적화) - INSERT 없이 조회만 수행
         List<BookSummary> allBooks = bookMetadataService.getBookSummaries(allBookInfos);
 
         // 3. title을 key로 하는 Map 생성
