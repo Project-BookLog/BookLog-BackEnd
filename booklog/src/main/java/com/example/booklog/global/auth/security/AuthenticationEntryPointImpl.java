@@ -1,7 +1,7 @@
 package com.example.booklog.global.auth.security;
 
-import com.example.booklog.global.common.ApiResponse;
-import com.example.booklog.global.common.GeneralErrorCode;
+import com.example.booklog.global.common.apiPayload.ApiResponse;
+import com.example.booklog.global.common.apiPayload.code.generalStatus.GeneralErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
