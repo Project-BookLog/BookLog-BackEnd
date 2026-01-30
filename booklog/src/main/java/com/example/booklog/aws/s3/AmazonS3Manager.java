@@ -5,6 +5,8 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.example.booklog.global.common.Uuid;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import com.example.booklog.global.common.repository.UuidRepository;
 import com.example.booklog.global.config.AmazonConfig;
 import lombok.RequiredArgsConstructor;
@@ -28,15 +30,23 @@ public class AmazonS3Manager {
     private final UuidRepository uuidRepository;
 
     public String uploadFile(String keyName, MultipartFile file){
+        String bucket = amazonConfig.getBucket();
+        log.info("[S3] upload start bucket='{}' key='{}' size={} contentType={}",
+                bucket, keyName, file.getSize(), file.getContentType());
+
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(file.getSize());
+
         try {
-            amazonS3.putObject(new PutObjectRequest(amazonConfig.getBucket(), keyName, file.getInputStream(), metadata));
-        } catch (IOException e){
-            log.error("error at AmazonS3Manager uploadFile : {}", (Object) e.getStackTrace());
+            amazonS3.putObject(new PutObjectRequest(bucket, keyName, file.getInputStream(), metadata));
+        } catch (Exception e) {
+            log.error("[S3] putObject failed bucket='{}' key='{}'", bucket, keyName, e);
+            throw new GeneralException(ErrorStatus.FILE_UPLOAD_FAILED);
         }
 
-        return amazonS3.getUrl(amazonConfig.getBucket(), keyName).toString();
+        String url = amazonS3.getUrl(bucket, keyName).toString();
+        log.info("[S3] upload success url='{}'", url);
+        return url;
     }
 
     public String generateReviewKeyName(Uuid uuid) {
