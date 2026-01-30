@@ -84,6 +84,8 @@ jwt:
       access: 7200000 # 2시간
       refresh: 1209600000 # 14일
 
-oauth2:
-  redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/redirect}
+# 기존 oauth2: 섹션은 지우거나 아래처럼 수정
+app:
+  oauth2:
+    frontend-redirect: ${FRONTEND_REDIRECT_URL:http://localhost:3000/oauth/callback}
 
