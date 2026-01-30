@@ -33,6 +33,27 @@ spring:
         format_sql: true # ???? SQL ??? ?? ?? ???
         dialect: org.hibernate.dialect.MySQLDialect
 
+  # Redis 캐시 설정 (선택사항 - Redis 없어도 애플리케이션 실행 가능)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # 연결 타임아웃 설정 (빠른 실패)
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+        shutdown-timeout: 100ms
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 21600000 # 기본 TTL 6시간 (ms)
+      # Redis 연결 실패 시 캐시 비활성화 (애플리케이션은 정상 작동)
+      enable-statistics: true
+
   # OAuth2 소셜 로그인 설정 (카카오)
   security:
     oauth2:

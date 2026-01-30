@@ -16,6 +16,18 @@ import java.util.Optional;
 public interface BooksRepository extends JpaRepository<Books, Long> {
     Optional<Books> findByIsbn13(String isbn13);
     Optional<Books> findByDetailUrl(String detailUrl);
+    Optional<Books> findByTitle(String title);
+
+    /**
+     * 홈 화면용 title 일괄 조회
+     * Fetch Join으로 BookAuthors와 Authors를 함께 조회
+     */
+    @Query("SELECT DISTINCT b FROM Books b " +
+           "LEFT JOIN FETCH b.bookAuthors ba " +
+           "LEFT JOIN FETCH ba.author a " +
+           "WHERE b.title IN :titles")
+    @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
+    List<Books> findAllByTitleIn(@Param("titles") List<String> titles);
 
     /**
      * 특정 작가의 도서 목록 조회 (최신순)
