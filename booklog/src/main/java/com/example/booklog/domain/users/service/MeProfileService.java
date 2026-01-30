@@ -42,10 +42,11 @@ public class MeProfileService {
 
     @Transactional
     public MeProfileResponse updateProfile(Long userId, MeProfileUpdateRequest req) {
-        Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.));
 
-        // settings upsert (없으면 생성)
+        Users user = usersRepository.findById(userId)
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
+
+        // settings upsert (없으면 생성) - UserSettings PK가 userId인 구조일 때
         UserSettings settings = userSettingsRepository.findById(userId)
                 .orElseGet(() -> userSettingsRepository.save(
                         UserSettings.builder()
@@ -58,10 +59,14 @@ public class MeProfileService {
         // 1) nickname PATCH: null이면 변경 X, 값이 오면 검증 후 변경
         if (req.nickname() != null) {
             String nn = req.nickname().trim();
-            if (nn.isEmpty()) throw new IllegalArgumentException("NICKNAME_EMPTY");
-            if (nn.length() > 50) throw new IllegalArgumentException("NICKNAME_TOO_LONG");
 
-            // profileImageUrl은 유지 (사진은 PUT /avatar)
+            if (nn.isEmpty()) {
+                throw new GeneralException(ErrorStatus.NICKNAME_EMPTY);
+            }
+            if (nn.length() > 50) {
+                throw new GeneralException(ErrorStatus.NICKNAME_TOO_LONG);
+            }
+
             user.updateProfile(nn, user.getProfileImageUrl());
         }
 
@@ -70,7 +75,6 @@ public class MeProfileService {
             settings.updateShelfPublic(req.isShelfPublic());
         }
         if (req.isBooklogPublic() != null) {
-            // DTO: isBooklogPublic -> Entity: isPostPublic
             settings.updatePostPublic(req.isBooklogPublic());
         }
 
@@ -82,4 +86,5 @@ public class MeProfileService {
                 settings.getIsPostPublic()
         );
     }
+
 }

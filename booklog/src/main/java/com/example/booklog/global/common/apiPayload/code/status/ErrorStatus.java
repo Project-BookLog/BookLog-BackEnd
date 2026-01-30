@@ -1,18 +1,20 @@
 package com.example.booklog.global.common.apiPayload.code.status;
 
+import com.example.booklog.global.common.apiPayload.code.BaseErrorCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
 @Getter
 @RequiredArgsConstructor
-public enum ErrorStatus {
+public enum ErrorStatus implements BaseErrorCode {
 
     // =========================
     // [User / Profile]
     // =========================
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "유저 없음"),
     NICKNAME_EMPTY(HttpStatus.BAD_REQUEST, "U002", "닉네임은 필수입니다."),
+    NICKNAME_TOO_LONG(HttpStatus.BAD_REQUEST, "U003", "닉네임은 50자 이하여야 합니다."),
 
     // =========================
     // [File / Upload]

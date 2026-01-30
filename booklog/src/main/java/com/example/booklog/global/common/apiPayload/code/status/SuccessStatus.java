@@ -1,12 +1,13 @@
 package com.example.booklog.global.common.apiPayload.code.status;
 
+import com.example.booklog.global.common.apiPayload.code.BaseSuccessCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
 @Getter
 @RequiredArgsConstructor
-public enum SuccessStatus {
+public enum SuccessStatus implements BaseSuccessCode {
     OK(HttpStatus.OK, "S000", "요청이 성공했습니다."),
     CREATED(HttpStatus.CREATED, "S001", "생성되었습니다.");
 
