@@ -68,7 +68,7 @@ public class UserBooksController {
                     - 인증: Access Token(Bearer)
                     - Query:
                       - shelfId: 선택
-                      - status: 선택 (TO_READ/READING/DONE/STOPPED)
+                      - status: 선택 (TO_READ/READING/COMPLETED/STOPPED)
                       - sort: 선택 (LATEST/OLDEST/TITLE/AUTHOR), 기본 LATEST
                     - 응답: 리스트 UI용 요약 데이터
                     """
