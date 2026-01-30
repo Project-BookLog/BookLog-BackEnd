@@ -1,4 +1,4 @@
-package com.example.booklog.global.common;
+package com.example.booklog.global.common.apiPayload.code;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

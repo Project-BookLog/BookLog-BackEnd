@@ -1,4 +1,4 @@
-package com.example.booklog.domain.tags.seed;
+package com.example.booklog.domain.tags;
 
 import com.example.booklog.domain.tags.entity.TagCategory;
 import com.example.booklog.domain.tags.entity.Tags;
