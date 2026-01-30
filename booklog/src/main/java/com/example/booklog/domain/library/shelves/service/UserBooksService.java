@@ -10,6 +10,8 @@ import com.example.booklog.domain.library.shelves.repository.BookshelvesReposito
 import com.example.booklog.domain.library.shelves.repository.UserBooksRepository;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.domain.users.repository.UsersRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -36,10 +38,10 @@ public class UserBooksService {
     public UserBookCreateResponse create(Long userId, UserBookCreateRequest req) {
 
         Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("유저 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
 
         Books book = booksRepository.findById(req.bookId())
-                .orElseThrow(() -> new IllegalArgumentException("책 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.BOOK_NOT_FOUND));
 
         UserBooks userBook = userBooksRepository.findByUser_IdAndBook_Id(userId, req.bookId())
                 .orElseGet(() -> {
@@ -65,11 +67,11 @@ public class UserBooksService {
         // shelfId가 있으면 "서재에 추가"
         if (req.shelfId() != null) {
             Bookshelves shelf = bookshelvesRepository.findById(req.shelfId())
-                    .orElseThrow(() -> new IllegalArgumentException("서재 없음"));
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.SHELF_NOT_FOUND));
 
             // (권한 아직 준비 전이라 했지만, 기존 로직 유지)
             if (!shelf.getUser().getId().equals(userId)) {
-                throw new IllegalStateException("내 서재가 아닙니다.");
+                throw new GeneralException(ErrorStatus.SHELF_NOT_OWNED);
             }
 
             if (!bookshelfItemsRepository.existsByShelf_IdAndBook_Id(shelf.getId(), book.getId())) {
@@ -181,8 +183,8 @@ public class UserBooksService {
         if (shelfId != null && ids != null && !ids.isEmpty()) {
             // (권한 체크를 완전히 빼려면 아래 2줄 삭제해도 됨)
             Bookshelves shelf = bookshelvesRepository.findById(shelfId)
-                    .orElseThrow(() -> new IllegalArgumentException("서재 없음"));
-            if (!shelf.getUser().getId().equals(userId)) throw new IllegalStateException("내 서재가 아닙니다.");
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.SHELF_NOT_FOUND));
+            if (!shelf.getUser().getId().equals(userId)) throw new GeneralException(ErrorStatus.SHELF_NOT_FOUND);
 
             List<Long> bookIds = userBooksRepository.findBookIdsByUserIdAndUserBookIds(userId, ids);
             if (bookIds.isEmpty()) return 0;
@@ -204,8 +206,8 @@ public class UserBooksService {
         if (shelfId != null) {
             // (권한 체크를 완전히 빼려면 아래 2줄 삭제해도 됨)
             Bookshelves shelf = bookshelvesRepository.findById(shelfId)
-                    .orElseThrow(() -> new IllegalArgumentException("서재 없음"));
-            if (!shelf.getUser().getId().equals(userId)) throw new IllegalStateException("내 서재가 아닙니다.");
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.SHELF_NOT_FOUND));
+            if (!shelf.getUser().getId().equals(userId)) throw new GeneralException(ErrorStatus.SHELF_NOT_OWNED);
 
             return bookshelfItemsRepository.deleteByShelfId(shelfId);
         }
@@ -233,7 +235,7 @@ public class UserBooksService {
     @Transactional(readOnly = true)
     public UserBookDetailResponse detail(Long userId, Long userBookId) {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
-                .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND));
 
         Books b = ub.getBook();
 
@@ -261,7 +263,7 @@ public class UserBooksService {
     @Transactional
     public void update(Long userId, Long userBookId, UserBookUpdateRequest req) {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
-                .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND));
 
         // 1) 상태 변경
         if (req.status() != null) {
@@ -288,9 +290,9 @@ public class UserBooksService {
         // 3) A방식: shelfId는 "추가"
         if (req.shelfId() != null) {
             Bookshelves shelf = bookshelvesRepository.findById(req.shelfId())
-                    .orElseThrow(() -> new IllegalArgumentException("서재 없음"));
+                    .orElseThrow(() -> new GeneralException(ErrorStatus.SHELF_NOT_FOUND));
             if (!shelf.getUser().getId().equals(userId)) {
-                throw new IllegalStateException("내 서재가 아닙니다.");
+                throw new GeneralException(ErrorStatus.SHELF_NOT_OWNED);
             }
 
             Long bookId = ub.getBook().getId();
@@ -304,7 +306,7 @@ public class UserBooksService {
     @Transactional
     public void saveTotalPage(Long userId, Long userBookId, TotalPageSaveRequest req) {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
-                .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음/권한 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND_OR_FORBIDDEN));
 
         ub.updatePageCountSnapshot(req.pageCountSnapshot());
     }

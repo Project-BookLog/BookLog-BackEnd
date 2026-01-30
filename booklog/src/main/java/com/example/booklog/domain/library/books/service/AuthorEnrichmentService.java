@@ -5,6 +5,8 @@ import com.example.booklog.domain.library.books.dto.WikidataSearchResponse;
 import com.example.booklog.domain.library.books.entity.Authors;
 import com.example.booklog.domain.library.books.repository.AuthorsRepository;
 import com.example.booklog.domain.library.books.service.client.WikidataClient;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +27,10 @@ public class AuthorEnrichmentService {
     @Transactional
     public void enrichAuthorByName(String authorName) {
         String normalized = authorName == null ? "" : authorName.trim();
-        if (normalized.isBlank()) throw new IllegalArgumentException("authorName is blank");
+        if (normalized.isBlank()) throw new GeneralException(ErrorStatus.AUTHOR_NAME_REQUIRED);
 
         Authors author = authorsRepository.findByName(normalized)
-                .orElseThrow(() -> new IllegalArgumentException("Author not found: " + normalized));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.AUTHOR_NOT_FOUND));
 
         if (author.hasWikidataId()) return;
 

@@ -3,6 +3,8 @@ package com.example.booklog.domain.booklog.port;
 import com.example.booklog.domain.booklog.view.BookView;
 import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +25,7 @@ public class BookReadPortImpl implements BookReadPort {
     @Override
     public BookView findBook(Long bookId) {
         Books b = booksRepository.findById(bookId)
-                .orElseThrow(() -> new IllegalArgumentException("책 없음. bookId=" + bookId));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.BOOK_NOT_FOUND));
 
         return new BookViewImpl(
                 b.getId(),

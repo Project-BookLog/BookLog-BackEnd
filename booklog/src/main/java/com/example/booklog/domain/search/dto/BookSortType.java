@@ -1,5 +1,8 @@
 package com.example.booklog.domain.search.dto;
 
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
+
 /**
  * 도서 검색 정렬 기준
  *
@@ -36,7 +39,7 @@ public enum BookSortType {
      *
      * @param value 정렬 기준 문자열 (latest, oldest, title, author)
      * @return BookSortType
-     * @throws IllegalArgumentException 유효하지 않은 정렬 기준인 경우
+     * @throws GeneralException 검색어가 유효하지 않은 경우
      */
     public static BookSortType from(String value) {
         if (value == null) {
@@ -49,9 +52,7 @@ public enum BookSortType {
             }
         }
 
-        throw new IllegalArgumentException(
-            String.format("유효하지 않은 정렬 기준입니다: %s (사용 가능: latest, oldest, title, author)", value)
-        );
+        throw new GeneralException(ErrorStatus.SORT_INVALID);
     }
 }
 

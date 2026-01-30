@@ -9,6 +9,8 @@ import com.example.booklog.domain.library.shelves.repository.BookshelfItemsRepos
 import com.example.booklog.domain.library.shelves.repository.BookshelvesRepository;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.domain.users.repository.UsersRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +29,10 @@ public class BookshelvesService {
     @Transactional
     public BookshelfCreateResponse create(Long userId, BookshelfCreateRequest req) {
         Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("유저 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.BOOK_NOT_FOUND));
 
         if (bookshelvesRepository.existsByUser_IdAndName(userId, req.name())) {
-            throw new IllegalStateException("이미 존재하는 서재명입니다.");
+            throw new GeneralException(ErrorStatus.DUPLICATE_SHELF_NAME);
         }
 
         boolean isPublic = (req.isPublic() != null) && req.isPublic();
@@ -92,7 +94,7 @@ public class BookshelvesService {
     @Transactional
     public void update(Long userId, Long shelfId, BookshelfUpdateRequest req) {
         Bookshelves shelf = bookshelvesRepository.findByIdAndUser_Id(shelfId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("서재 없음 또는 내 서재 아님"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.SHELF_NOT_FOUND_OR_NOT_OWNED));
 
         if (req.name() != null && !req.name().isBlank()) shelf.updateName(req.name());
         if (req.isPublic() != null) shelf.updatePublic(req.isPublic());
@@ -103,7 +105,7 @@ public class BookshelvesService {
     @Transactional
     public void delete(Long userId, Long shelfId) {
         Bookshelves shelf = bookshelvesRepository.findByIdAndUser_Id(shelfId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("서재 없음 또는 내 서재 아님"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.SHELF_NOT_FOUND_OR_NOT_OWNED));
 
         // ✅ 라이브러리(user_books)는 건드리지 않음
         bookshelfItemsRepository.deleteByShelfId(shelfId);

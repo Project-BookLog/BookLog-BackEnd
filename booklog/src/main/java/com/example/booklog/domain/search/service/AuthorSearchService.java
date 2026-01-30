@@ -8,6 +8,8 @@ import com.example.booklog.domain.library.books.service.BookImportService;
 import com.example.booklog.domain.search.dto.AuthorBookResponse;
 import com.example.booklog.domain.search.dto.AuthorSearchItemResponse;
 import com.example.booklog.domain.search.dto.AuthorSearchResponse;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -150,23 +152,23 @@ public class AuthorSearchService {
     /**
      * 검색 입력값 검증
      *
-     * @throws IllegalArgumentException 입력값이 유효하지 않은 경우
+     * @throws GeneralException 검색어가 유효하지 않은 경우
      */
     private void validateSearchInput(String query, int page, int size) {
         if (query == null || query.trim().isEmpty()) {
-            throw new IllegalArgumentException("검색어는 필수입니다.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_REQUIRED);
         }
 
         if (query.trim().length() > 100) {
-            throw new IllegalArgumentException("검색어는 100자 이내로 입력해주세요.");
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_TOO_LONG);
         }
 
         if (page < 1) {
-            throw new IllegalArgumentException("페이지 번호는 1 이상이어야 합니다.");
+            throw new GeneralException(ErrorStatus.PAGE_NUMBER_INVALID);
         }
 
         if (size < 1 || size > 100) {
-            throw new IllegalArgumentException("페이지 크기는 1~100 사이여야 합니다.");
+            throw new GeneralException(ErrorStatus.PAGE_SIZE_INVALID);
         }
     }
 }

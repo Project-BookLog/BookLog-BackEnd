@@ -4,6 +4,8 @@ import com.example.booklog.domain.booklog.port.UserReadPort;
 import com.example.booklog.domain.booklog.view.AuthorView;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.domain.users.repository.UsersRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +26,7 @@ public class UserReadPortImpl implements UserReadPort {
     @Override
     public AuthorView findAuthorSummary(Long userId) {
         Users u = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("유저 없음. userId=" + userId));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
 
         // summary에서는 email/followedByMe는 null 허용
         return new AuthorViewImpl(
@@ -39,7 +41,7 @@ public class UserReadPortImpl implements UserReadPort {
     @Override
     public AuthorView findAuthorDetail(Long userId, Long viewerId) {
         Users u = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("유저 없음. userId=" + userId));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
 
         // 팔로우 도메인이 아직 없으면 우선 null 또는 false로 둠
         Boolean followedByMe = null; // 또는 false

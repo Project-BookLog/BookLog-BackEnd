@@ -3,6 +3,8 @@ package com.example.booklog.domain.booklog.service;
 import com.example.booklog.aws.s3.AmazonS3Manager;
 import com.example.booklog.domain.booklog.dto.BooklogImageUploadResponse;
 import com.example.booklog.global.common.Uuid;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import com.example.booklog.global.common.repository.UuidRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -26,12 +28,12 @@ public class BooklogImageService {
 
     public BooklogImageUploadResponse uploadBooklogImage(Long userId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("업로드할 파일이 없습니다.");
+            throw new GeneralException(ErrorStatus.FILE_REQUIRED);
         }
 
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("이미지 파일만 업로드할 수 있습니다. (jpg/png/webp)");
+            throw new GeneralException(ErrorStatus.UNSUPPORTED_IMAGE_TYPE);
         }
         // 1) UUID 발급/저장 (프로젝트에서 쓰는 Uuid 테이블/레포 그대로 활용)
         Uuid uuid = uuidRepository.save(Uuid.create());
