@@ -6,6 +6,8 @@ import com.example.booklog.domain.users.entity.UserSettings;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.domain.users.repository.UserSettingsRepository;
 import com.example.booklog.domain.users.repository.UsersRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +43,7 @@ public class MeProfileService {
     @Transactional
     public MeProfileResponse updateProfile(Long userId, MeProfileUpdateRequest req) {
         Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("USER_NOT_FOUND"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.));
 
         // settings upsert (없으면 생성)
         UserSettings settings = userSettingsRepository.findById(userId)

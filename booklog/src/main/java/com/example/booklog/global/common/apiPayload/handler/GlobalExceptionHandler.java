@@ -3,7 +3,7 @@ package com.example.booklog.global.common.apiPayload.handler;
 import com.example.booklog.global.auth.exception.AuthErrorCode;
 import com.example.booklog.global.auth.exception.AuthException;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
-import com.example.booklog.global.common.apiPayload.code.GeneralErrorCode;
+import com.example.booklog.global.common.apiPayload.code.generalStatus.GeneralErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

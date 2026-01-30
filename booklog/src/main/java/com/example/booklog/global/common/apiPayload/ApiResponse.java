@@ -2,7 +2,7 @@ package com.example.booklog.global.common.apiPayload;
 
 import com.example.booklog.global.auth.exception.AuthErrorCode;
 import com.example.booklog.global.auth.exception.AuthSuccessCode;
-import com.example.booklog.global.common.apiPayload.code.GeneralErrorCode;
+import com.example.booklog.global.common.apiPayload.code.generalStatus.GeneralErrorCode;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
