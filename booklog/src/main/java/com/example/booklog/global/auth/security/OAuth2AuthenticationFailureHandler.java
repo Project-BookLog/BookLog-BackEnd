@@ -19,7 +19,7 @@ import java.io.IOException;
 @Component
 public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationFailureHandler {
 
-    @Value("${oauth2.redirect-uri:http://localhost:3000/oauth2/redirect}")
+    @Value("${app.oauth2.frontend-redirect}")
     private String redirectUri;
 
     @Override
