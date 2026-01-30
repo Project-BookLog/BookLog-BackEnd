@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
  * 3. 카카오 API 응답을 DB에 저장
  * 4. 결과 반환
  *
- * [추후 개선 예정]
+ * [개선 예정]
  * - Redis 캐싱
  * - 비동기 처리
  */
