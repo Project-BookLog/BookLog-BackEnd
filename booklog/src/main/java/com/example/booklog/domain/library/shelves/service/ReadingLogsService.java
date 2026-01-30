@@ -7,6 +7,8 @@ import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
 import com.example.booklog.domain.library.shelves.entity.UserBooks;
 import com.example.booklog.domain.library.shelves.repository.ReadingLogsRepository;
 import com.example.booklog.domain.library.shelves.repository.UserBooksRepository;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +27,7 @@ public class ReadingLogsService {
     @Transactional
     public ReadingLogResponse create(Long userId, Long userBookId, ReadingLogSaveRequest req) {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
-                .orElseThrow(() -> new IllegalArgumentException("저장 도서 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND));
 
 
         // prevCurrent 계산 (일단 유지)
@@ -67,7 +69,7 @@ public class ReadingLogsService {
     @Transactional
     public ReadingLogResponse update(Long userId, Long logId, ReadingLogSaveRequest req) {
         ReadingLogs log = readingLogsRepository.findOwned(userId, logId)
-                .orElseThrow(() -> new IllegalArgumentException("독서 기록 없음/권한 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.READING_LOG_NOT_FOUND_OR_FORBIDDEN));
 
         UserBooks ub = log.getUserBook();
 
@@ -77,7 +79,7 @@ public class ReadingLogsService {
         recalcLogsAndUserBook(ub);
 
         ReadingLogs updated = readingLogsRepository.findById(logId)
-                .orElseThrow(() -> new IllegalStateException("수정된 로그 조회 실패"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.READING_LOG_UPDATED_FETCH_FAILED));
 
         return new ReadingLogResponse(
                 updated.getId(),
@@ -92,7 +94,7 @@ public class ReadingLogsService {
     @Transactional
     public void delete(Long userId, Long logId) {
         ReadingLogs log = readingLogsRepository.findOwned(userId, logId)
-                .orElseThrow(() -> new IllegalArgumentException("독서 기록 없음/권한 없음"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.READING_LOG_NOT_FOUND_OR_FORBIDDEN));
 
         UserBooks ub = log.getUserBook();
         readingLogsRepository.delete(log);

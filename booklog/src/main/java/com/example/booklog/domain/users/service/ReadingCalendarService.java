@@ -2,6 +2,8 @@ package com.example.booklog.domain.users.service;
 
 import com.example.booklog.domain.library.shelves.repository.ReadingLogsRepository;
 import com.example.booklog.domain.users.dto.ReadingCalendarResponse;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +45,7 @@ public class ReadingCalendarService {
         try {
             return YearMonth.parse(month); // "YYYY-MM"
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("month 형식이 올바르지 않습니다. 예) 2026-01");
+            throw new GeneralException(ErrorStatus.UNSUPPORTED_CALENDAR_FORMAT);
         }
     }
 }

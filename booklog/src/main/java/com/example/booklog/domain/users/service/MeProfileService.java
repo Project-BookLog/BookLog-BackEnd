@@ -63,7 +63,7 @@ public class MeProfileService {
             if (nn.isEmpty()) {
                 throw new GeneralException(ErrorStatus.NICKNAME_EMPTY);
             }
-            if (nn.length() > 50) {
+            else if (nn.length() > 50) {
                 throw new GeneralException(ErrorStatus.NICKNAME_TOO_LONG);
             }
 

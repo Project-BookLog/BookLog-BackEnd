@@ -21,6 +21,7 @@ public enum ErrorStatus implements BaseErrorCode {
     // =========================
     FILE_REQUIRED(HttpStatus.BAD_REQUEST, "F001", "파일이 필요합니다."),
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "F002", "파일 용량이 너무 큽니다."),
+    UNSUPPORTED_IMAGE_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "F003", "지원하는 파일 양식이 아닙니다."),
 
     // =========================
     // [Author / Enrichment / Search]
@@ -55,6 +56,8 @@ public enum ErrorStatus implements BaseErrorCode {
     // =========================
     SHELF_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "서재 없음"),
     SHELF_NOT_FOUND_OR_NOT_OWNED(HttpStatus.NOT_FOUND, "S002", "서재 없음 또는 내 서재 아님"),
+    SHELF_NOT_OWNED(HttpStatus.NOT_FOUND, "S003", "내 서재 아님"),
+    DUPLICATE_SHELF_NAME(HttpStatus.NOT_FOUND, "S004", "중복된 서재 이름"),
 
     // =========================
     // [UserBooks / Library]
@@ -67,7 +70,10 @@ public enum ErrorStatus implements BaseErrorCode {
     // =========================
     // [Reading Logs]
     // =========================
-    READING_LOG_NOT_FOUND_OR_FORBIDDEN(HttpStatus.NOT_FOUND, "R001", "독서 기록 없음/권한 없음");
+    READING_LOG_NOT_FOUND_OR_FORBIDDEN(HttpStatus.NOT_FOUND, "R001", "독서 기록 없음/권한 없음"),
+    READING_LOG_UPDATED_FETCH_FAILED(HttpStatus.NOT_FOUND, "R002", "수정된 로그 조회 실패"),
+    UNSUPPORTED_CALENDAR_FORMAT(HttpStatus.NOT_FOUND, "R003", "month 형식이 올바르지 않습니다. 예) 2026-01");
+
 
     private final HttpStatus httpStatus;
     private final String code;

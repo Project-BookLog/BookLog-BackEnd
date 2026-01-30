@@ -5,6 +5,8 @@ import com.example.booklog.domain.users.dto.MeAvatarUpdateResponse;
 import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.domain.users.repository.UsersRepository;
 import com.example.booklog.global.common.Uuid;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import com.example.booklog.global.common.repository.UuidRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -32,7 +34,7 @@ public class MeAvatarService {
         validate(file);
 
         Users user = usersRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("USER_NOT_FOUND"));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND));
 
         // 1) Uuid 생성/저장 (Builder 사용)
         Uuid uuid = uuidRepository.save(
@@ -52,12 +54,12 @@ public class MeAvatarService {
     }
 
     private void validate(MultipartFile file) {
-        if (file == null || file.isEmpty()) throw new IllegalArgumentException("FILE_REQUIRED");
-        if (file.getSize() > MAX_SIZE) throw new IllegalArgumentException("FILE_TOO_LARGE");
+        if (file == null || file.isEmpty()) throw new GeneralException(ErrorStatus.FILE_REQUIRED);
+        if (file.getSize() > MAX_SIZE) throw new GeneralException(ErrorStatus.FILE_TOO_LARGE);
 
         String ct = file.getContentType();
         if (ct == null || !ALLOWED.contains(ct)) {
-            throw new IllegalArgumentException("UNSUPPORTED_IMAGE_TYPE");
+            throw new GeneralException(ErrorStatus.UNSUPPORTED_IMAGE_TYPE);
         }
     }
 }
