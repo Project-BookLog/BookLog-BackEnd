@@ -1,4 +1,4 @@
-package com.example.booklog.domain.onboarding.entity;
+package com.example.booklog.domain.onboarding.entity.enums;
 
 public enum QuestionType {
     SINGLE,     //단일 선택
