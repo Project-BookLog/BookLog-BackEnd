@@ -1,7 +1,9 @@
 package com.example.booklog.domain.onboarding.controller;
 
+import com.example.booklog.domain.onboarding.dto.OnboardingBasedRecommendationResponse;
 import com.example.booklog.domain.onboarding.dto.OnboardingProfileResponse;
 import com.example.booklog.domain.onboarding.dto.UpdateOnboardingAnswersRequest;
+import com.example.booklog.domain.onboarding.service.OnboardingRecommendationService;
 import com.example.booklog.domain.onboarding.service.OnboardingService;
 import com.example.booklog.global.auth.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
+    private final OnboardingRecommendationService recommendationService;
 
     /**
      * 온보딩 응답 저장 (부분 업데이트)
@@ -117,6 +120,39 @@ public class OnboardingController {
     ) {
         Long userId = userDetails.getUserId();
         OnboardingProfileResponse response = onboardingService.getOnboardingProfile(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 온보딩 기반 도서 추천
+     * GET /api/v1/onboarding/recommendations
+     *
+     * @param userDetails JWT 인증된 사용자 정보
+     * @return 추천 도서 카드 목록 (최대 6개)
+     */
+    @Operation(
+            summary = "온보딩 기반 도서 추천",
+            description = """
+                    사용자의 온보딩 키워드와 최근 검색어를 바탕으로 개인화된 도서를 추천합니다.
+                    - 최대 6개의 추천 카드를 반환합니다.
+                    - 추천 결과가 0개여도 200 OK를 반환합니다.
+                    - 각 추천 카드는 온보딩 필드 1개를 기준으로 생성됩니다.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "추천 생성 성공 (결과가 0개여도 성공)",
+                    content = @Content(schema = @Schema(implementation = OnboardingBasedRecommendationResponse.class))
+            ),
+            @ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    @GetMapping("/recommendations")
+    public ResponseEntity<OnboardingBasedRecommendationResponse> getRecommendations(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = userDetails.getUserId();
+        OnboardingBasedRecommendationResponse response = recommendationService.generateRecommendations(userId);
         return ResponseEntity.ok(response);
     }
 }
