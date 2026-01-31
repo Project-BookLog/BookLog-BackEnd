@@ -70,7 +70,15 @@ public class IntegratedSearchService {
     public IntegratedSearchResponse search(String query, String sort) {
         log.info("통합 검색 요청 - query: {}, sort: {}", query, sort);
 
-        // 1. 입력값 검증
+        // 검색어가 없으면 빈 배열 반환 (200 OK)
+        if (query == null || query.trim().isEmpty()) {
+            log.info("검색어 없음 - 빈 결과 반환");
+            AuthorSearchResponse emptyAuthorResponse = AuthorSearchResponse.of(List.of(), 1, DEFAULT_RESULT_SIZE, 0L);
+            BookSearchResponse emptyBookResponse = new BookSearchResponse(1, DEFAULT_RESULT_SIZE, true, 0, List.of());
+            return IntegratedSearchResponse.of(query != null ? query : "", sort, emptyAuthorResponse, emptyBookResponse);
+        }
+
+        // 1. 입력값 검증 (검색어 길이, 정렬 기준)
         validateSearchInput(query, sort);
 
         // 2. 작가 검색 (실패해도 계속 진행)
@@ -136,11 +144,7 @@ public class IntegratedSearchService {
      * @throws GeneralException 검색어가 유효하지 않은 경우
      */
     private void validateSearchInput(String query, String sort) {
-        // 검색어 검증
-        if (query == null || query.trim().isEmpty()) {
-            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_REQUIRED);
-        }
-
+        // 검색어는 이미 상단에서 빈 값 체크 완료, 여기서는 길이만 검증
         if (query.trim().length() > 100) {
             throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_TOO_LONG);
         }
