@@ -1,5 +1,6 @@
 package com.example.booklog.domain.onboarding.entity;
 
+import com.example.booklog.domain.onboarding.entity.enums.QuestionType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
