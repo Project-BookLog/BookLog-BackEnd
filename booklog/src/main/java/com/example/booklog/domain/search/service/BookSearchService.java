@@ -6,6 +6,8 @@ import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.books.service.BookImportService;
 import com.example.booklog.domain.search.dto.BookSortType;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -56,9 +58,7 @@ public class BookSearchService {
                  query, page, size, sortType.getValue());
 
         // 입력 검증
-        if (query == null || query.trim().isEmpty()) {
-            return new BookSearchResponse(page, size, true, 0, List.of());
-        }
+        validateSearchInput(query, page, size);
 
         // 정렬 기준 생성
         Sort sort = createSort(sortType);
@@ -157,5 +157,27 @@ public class BookSearchService {
                 book.getPublishedDate()
         );
     }
-}
 
+    /**
+     * 검색 입력값 검증
+     *
+     * @throws GeneralException 검색어가 유효하지 않은 경우
+     */
+    private void validateSearchInput(String query, int page, int size) {
+        if (query == null || query.trim().isEmpty()) {
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_REQUIRED);
+        }
+
+        if (query.trim().length() > 100) {
+            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_TOO_LONG);
+        }
+
+        if (page < 1) {
+            throw new GeneralException(ErrorStatus.PAGE_NUMBER_INVALID);
+        }
+
+        if (size < 1 || size > 100) {
+            throw new GeneralException(ErrorStatus.PAGE_SIZE_INVALID);
+        }
+    }
+}

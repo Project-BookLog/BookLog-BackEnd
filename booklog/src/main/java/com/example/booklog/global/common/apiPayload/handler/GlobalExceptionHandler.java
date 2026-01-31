@@ -3,7 +3,9 @@ package com.example.booklog.global.common.apiPayload.handler;
 import com.example.booklog.global.auth.exception.AuthErrorCode;
 import com.example.booklog.global.auth.exception.AuthException;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
+import com.example.booklog.global.common.apiPayload.code.BaseErrorCode;
 import com.example.booklog.global.common.apiPayload.code.generalStatus.GeneralErrorCode;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,22 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * GeneralException 처리 (프로젝트 공통 예외)
+     */
+    @ExceptionHandler(GeneralException.class)
+    public ResponseEntity<ApiResponse<Void>> handleGeneralException(GeneralException e) {
+        log.error("GeneralException: {}", e.getCode().getMessage(), e);
+        BaseErrorCode errorCode = e.getCode();
+
+        ApiResponse<Void> response = ApiResponse.onFailure(errorCode);
+
+        // ErrorCode의 HttpStatus 사용
+        HttpStatus status = errorCode.getHttpStatus();
+
+        return ResponseEntity.status(status).body(response);
+    }
 
     /**
      * AuthException 처리
