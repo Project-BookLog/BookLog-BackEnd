@@ -55,8 +55,8 @@ spring:
       enable-statistics: true
   #AI
   openai:
-    model: gpt-4o-mini
-    secret-key: ${GPT_SECRET_API_KEY}
+    model: ${OPENAI_MODEL:gpt-4o-mini}
+    secret-key: ${GPT_SECRET_API_KEY:dummy-key-for-development}
   # OAuth2 소셜 로그인 설정 (카카오)
   security:
     oauth2:

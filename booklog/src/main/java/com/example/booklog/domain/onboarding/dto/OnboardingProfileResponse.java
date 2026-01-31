@@ -62,5 +62,24 @@ public class OnboardingProfileResponse {
                 .completedAt(status != null ? status.getCompletedAt() : null)
                 .build();
     }
+
+    /**
+     * 빈 온보딩 프로필 응답 생성
+     * - 온보딩을 하지 않은 사용자를 위한 기본 응답
+     */
+    public static OnboardingProfileResponse empty() {
+        return OnboardingProfileResponse.builder()
+                .readerType(null)
+                .preferredMood1(null)
+                .preferredMood2(null)
+                .sentenceBreath(null)
+                .expressionTexture(null)
+                .expressionDirection(null)
+                .readingMoment(null)
+                .updatedAt(null)
+                .isCompleted(false)
+                .completedAt(null)
+                .build();
+    }
 }
 
