@@ -53,10 +53,12 @@ spring:
       time-to-live: 21600000 # 기본 TTL 6시간 (ms)
       # Redis 연결 실패 시 캐시 비활성화 (애플리케이션은 정상 작동)
       enable-statistics: true
+
   #AI
   openai:
     model: gpt-4o-mini
     secret-key: ${GPT_SECRET_API_KEY}
+
   # OAuth2 소셜 로그인 설정 (카카오)
   security:
     oauth2:
@@ -108,7 +110,7 @@ jwt:
       access: 7200000 # 2시간
       refresh: 1209600000 # 14일
 
-# 기존 oauth2: 섹션은 지우거나 아래처럼 수정
+# OAuth2 프론트엔드 리다이렉트 설정
 app:
   oauth2:
     frontend-redirect: ${FRONTEND_REDIRECT_URL:http://localhost:3000/oauth/callback}
