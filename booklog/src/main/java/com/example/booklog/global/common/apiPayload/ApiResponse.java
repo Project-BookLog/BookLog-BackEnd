@@ -2,6 +2,7 @@ package com.example.booklog.global.common.apiPayload;
 
 import com.example.booklog.global.auth.exception.AuthErrorCode;
 import com.example.booklog.global.auth.exception.AuthSuccessCode;
+import com.example.booklog.global.common.apiPayload.code.BaseErrorCode;
 import com.example.booklog.global.common.apiPayload.code.generalStatus.GeneralErrorCode;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -57,6 +58,16 @@ public class ApiResponse<T> {
 
     // 실패 응답 (GeneralErrorCode 사용, 데이터 없이)
     public static <T> ApiResponse<T> onFailure(GeneralErrorCode errorCode) {
+        return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null);
+    }
+
+    // 실패 응답 (BaseErrorCode 사용 - ErrorStatus 등)
+    public static <T> ApiResponse<T> onFailure(BaseErrorCode errorCode, T data) {
+        return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), data);
+    }
+
+    // 실패 응답 (BaseErrorCode 사용, 데이터 없이)
+    public static <T> ApiResponse<T> onFailure(BaseErrorCode errorCode) {
         return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null);
     }
 }
