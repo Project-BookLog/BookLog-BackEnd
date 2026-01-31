@@ -2,14 +2,14 @@ package com.example.booklog.domain.home.service;
 
 import com.example.booklog.domain.home.dto.BookSummary;
 import com.example.booklog.domain.library.books.dto.KakaoBookSearchResponse;
+import com.example.booklog.domain.library.books.entity.BookSource;
 import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.books.service.client.KakaoBookClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -18,10 +18,15 @@ import java.util.stream.Collectors;
 /**
  * 홈 화면용 도서 메타데이터 관리 서비스
  *
- * 전략:
- * 1. DB 우선 조회 (캐시된 메타데이터)
- * 2. DB에 없으면 비동기로 카카오 API 호출하여 보강
- * 3. 홈 화면 응답은 DB 데이터만으로 즉시 반환 (지연 없음)
+ * [1차 구현 전략 - 동기 방식]
+ * 1. DB 우선 조회
+ * 2. DB에 없으면 카카오 API 동기 호출
+ * 3. 카카오 API 응답을 DB에 저장
+ * 4. 결과 반환
+ *
+ * [개선 예정]
+ * - Redis 캐싱
+ * - 비동기 처리
  */
 @Slf4j
 @Service
@@ -32,63 +37,21 @@ public class BookMetadataService {
     private final KakaoBookClient kakaoBookClient;
 
     /**
-     * 홈 화면용 도서 요약 정보 조회
-     * Redis 캐시 적용 (6시간 TTL)
-     *
-     * @param bookId 도서 ID
-     * @param title 도서명
-     * @param ranking 순위 (nullable)
-     * @return BookSummary
-     */
-    @Cacheable(value = "bookMetadata", key = "'book:' + #bookId", unless = "#result == null")
-    @Transactional(readOnly = true)
-    public BookSummary getBookSummary(Long bookId, String title, Integer ranking) {
-        // 1. DB에서 조회
-        Optional<Books> bookOpt = booksRepository.findByTitle(title);
-
-        if (bookOpt.isPresent()) {
-            Books book = bookOpt.get();
-
-            // 2. 메타데이터 보강 필요 시 비동기로 처리
-            if (needsMetadataEnrichment(book)) {
-                enrichMetadataAsync(book.getId(), title);
-            }
-
-            // 3. 현재 DB 데이터로 응답 (즉시 반환)
-            return createBookSummary(bookId, book, ranking);
-        }
-
-        // 4. DB에 없으면 빈 Books 생성 후 비동기 보강
-        Books newBook = createEmptyBook(title);
-        Books savedBook = booksRepository.save(newBook);
-        enrichMetadataAsync(savedBook.getId(), title);
-
-        // 5. 일단 title만으로 응답
-        return new BookSummary(
-                bookId,
-                title,
-                null,
-                null,
-                null,
-                ranking
-        );
-    }
-
-    /**
-     * 여러 도서 일괄 조회 (홈 화면 최적화)
+     * 여러 도서 일괄 조회 (홈 화면용)
      *
      * @param bookInfoList (bookId, title, ranking) 리스트
      * @return BookSummary 리스트
      */
-    @Transactional(readOnly = true)
     public List<BookSummary> getBookSummaries(List<BookInfo> bookInfoList) {
+        log.info("도서 메타데이터 일괄 조회 시작: {} 건", bookInfoList.size());
+
         // 1. title 목록 추출
         List<String> titles = bookInfoList.stream()
                 .map(BookInfo::title)
                 .distinct()
                 .collect(Collectors.toList());
 
-        // 2. 일괄 조회 (IN 쿼리 1번)
+        // 2. DB 일괄 조회
         List<Books> books = booksRepository.findAllByTitleIn(titles);
         Map<String, Books> bookMap = books.stream()
                 .collect(Collectors.toMap(Books::getTitle, b -> b));
@@ -99,88 +62,81 @@ public class BookMetadataService {
             Books book = bookMap.get(info.title);
 
             if (book != null) {
-                // 메타데이터 보강 필요 시 비동기 처리
-                if (needsMetadataEnrichment(book)) {
-                    enrichMetadataAsync(book.getId(), info.title);
-                }
+                // DB에 있음 → 바로 변환
                 results.add(createBookSummary(info.bookId, book, info.ranking));
             } else {
-                // DB에 없으면 빈 데이터 생성 후 비동기 보강
-                Books newBook = createEmptyBook(info.title);
-                Books saved = booksRepository.save(newBook);
-                enrichMetadataAsync(saved.getId(), info.title);
-
-                results.add(new BookSummary(
-                        info.bookId,
-                        info.title,
-                        null,
-                        null,
-                        null,
-                        info.ranking
-                ));
+                // DB에 없음 → 카카오 API 호출 후 저장
+                Books newBook = fetchAndSaveFromKakao(info.title);
+                if (newBook != null) {
+                    results.add(createBookSummary(info.bookId, newBook, info.ranking));
+                } else {
+                    // 카카오 API에서도 못 찾음 → null 데이터 반환
+                    results.add(new BookSummary(
+                            info.bookId,
+                            info.title,
+                            null,
+                            null,
+                            null,
+                            info.ranking
+                    ));
+                }
             }
         }
 
+        log.info("도서 메타데이터 일괄 조회 완료: {} 건", results.size());
         return results;
     }
 
     /**
-     * 메타데이터 보강이 필요한지 판단
+     * 카카오 API에서 도서 정보를 가져와서 DB에 저장
+     * 별도 트랜잭션으로 실행 (읽기 전용 트랜잭션과 분리)
+     *
+     * @param title 도서명
+     * @return 저장된 Books 엔티티
      */
-    private boolean needsMetadataEnrichment(Books book) {
-        // 썸네일이 없거나 출판사가 없으면 보강 필요
-        return book.getThumbnailUrl() == null || book.getPublisherName() == null;
-    }
-
-    /**
-     * 비동기로 카카오 API 호출하여 메타데이터 보강
-     * 홈 화면 응답 지연을 방지하기 위해 별도 스레드에서 실행
-     */
-    @Async
-    @Transactional
-    public void enrichMetadataAsync(Long bookId, String title) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Books fetchAndSaveFromKakao(String title) {
         try {
-            log.info("비동기 메타데이터 보강 시작: bookId={}, title={}", bookId, title);
+            log.info("카카오 API 호출 시작: title={}", title);
 
             // 카카오 API 호출
             KakaoBookSearchResponse response = kakaoBookClient.search(title, 1, 1).block();
 
             if (response == null || response.getDocuments().isEmpty()) {
                 log.warn("카카오 API 응답 없음: title={}", title);
-                return;
+                return null;
             }
 
-            // 첫 번째 결과로 업데이트
+            // 첫 번째 결과로 Books 엔티티 생성
             KakaoBookSearchResponse.Document doc = response.getDocuments().get(0);
-
-            Books book = booksRepository.findById(bookId)
-                    .orElseThrow(() -> new IllegalArgumentException("Book not found: " + bookId));
 
             // ISBN 파싱
             String[] isbns = parseIsbn(doc.getIsbn());
             String isbn10 = isbns[0];
             String isbn13 = isbns[1];
 
-            // Books 엔티티 업데이트
-            book.updateBasicInfo(
-                    doc.getTitle(),
-                    doc.getContents(),
-                    doc.getThumbnail(),
-                    doc.getUrl(),
-                    doc.getPublisher(),
-                    null, // publishedDate는 별도 파싱 필요
-                    doc.getIsbn(),
-                    isbn10,
-                    isbn13,
-                    null // rawData는 필요시 추가
-            );
+            // Books 엔티티 생성
+            Books book = Books.builder()
+                    .title(doc.getTitle())
+                    .description(doc.getContents())
+                    .thumbnailUrl(doc.getThumbnail())
+                    .detailUrl(doc.getUrl())
+                    .publisherName(doc.getPublisher())
+                    .isbn(doc.getIsbn())
+                    .isbn10(isbn10)
+                    .isbn13(isbn13)
+                    .source(BookSource.KAKAO)
+                    .build();
 
-            booksRepository.save(book);
+            // DB 저장
+            Books saved = booksRepository.save(book);
+            log.info("카카오 API 응답 DB 저장 완료: title={}, bookId={}", title, saved.getId());
 
-            log.info("메타데이터 보강 완료: bookId={}, title={}", bookId, title);
+            return saved;
 
         } catch (Exception e) {
-            log.error("메타데이터 보강 실패: bookId={}, title={}, error={}", bookId, title, e.getMessage(), e);
+            log.error("카카오 API 호출 또는 저장 실패: title={}, error={}", title, e.getMessage(), e);
+            return null;
         }
     }
 
@@ -201,15 +157,6 @@ public class BookMetadataService {
                 book.getThumbnailUrl(),
                 ranking
         );
-    }
-
-    /**
-     * 빈 Books 엔티티 생성 (최초 저장용)
-     */
-    private Books createEmptyBook(String title) {
-        return Books.builder()
-                .title(title)
-                .build();
     }
 
     /**
