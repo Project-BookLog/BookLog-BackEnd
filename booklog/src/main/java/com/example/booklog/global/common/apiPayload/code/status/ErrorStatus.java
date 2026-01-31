@@ -15,6 +15,8 @@ public enum ErrorStatus implements BaseErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "유저 없음"),
     NICKNAME_EMPTY(HttpStatus.BAD_REQUEST, "U002", "닉네임은 필수입니다."),
     NICKNAME_TOO_LONG(HttpStatus.BAD_REQUEST, "U003", "닉네임은 50자 이하여야 합니다."),
+    SELF_FOLLOW_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "U004", "자기 자신을 팔로우/언팔로우할 수 없습니다."),
+
 
     // =========================
     // [File / Upload]
