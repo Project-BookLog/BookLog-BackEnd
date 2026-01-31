@@ -39,9 +39,17 @@ public class UserOnboardingStatus {
     @Builder
     public UserOnboardingStatus(Users user, Boolean isCompleted, Boolean isSkipped) {
         this.user = user;
+        // @MapsId를 사용하므로 userId는 JPA가 자동으로 설정
         this.isCompleted = isCompleted != null ? isCompleted : false;
         this.isSkipped = isSkipped != null ? isSkipped : false;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.updatedAt == null) {
+            this.updatedAt = LocalDateTime.now();
+        }
     }
 
     public void complete() {

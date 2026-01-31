@@ -50,7 +50,13 @@ public class AuthorSearchService {
     public AuthorSearchResponse searchAuthors(String query, int page, int size) {
         log.info("작가 검색 요청 - query: {}, page: {}, size: {}", query, page, size);
 
-        // 입력 검증
+        // 검색어가 없으면 빈 배열 반환 (200 OK)
+        if (query == null || query.trim().isEmpty()) {
+            log.info("검색어 없음 - 빈 결과 반환");
+            return AuthorSearchResponse.of(List.of(), page, size, 0L);
+        }
+
+        // 입력 검증 (검색어 길이, 페이지 검증)
         validateSearchInput(query, page, size);
 
         // 1단계: 작가 검색 (페이징)
@@ -155,10 +161,7 @@ public class AuthorSearchService {
      * @throws GeneralException 검색어가 유효하지 않은 경우
      */
     private void validateSearchInput(String query, int page, int size) {
-        if (query == null || query.trim().isEmpty()) {
-            throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_REQUIRED);
-        }
-
+        // 검색어는 이미 상단에서 빈 값 체크 완료, 여기서는 길이만 검증
         if (query.trim().length() > 100) {
             throw new GeneralException(ErrorStatus.SEARCH_KEYWORD_TOO_LONG);
         }

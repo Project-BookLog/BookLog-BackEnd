@@ -53,7 +53,7 @@ public class SearchController {
      */
     @GetMapping("/books")
     public BookSearchResponse searchBooks(
-            @RequestParam String query,
+            @RequestParam(required = false) String query,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "latest") String sort
@@ -73,7 +73,7 @@ public class SearchController {
      */
     @GetMapping("/authors")
     public AuthorSearchResponse searchAuthors(
-            @RequestParam String query,
+            @RequestParam(required = false) String query,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -175,7 +175,7 @@ public class SearchController {
      */
     @GetMapping
     public ResponseEntity<IntegratedSearchResponse> search(
-            @RequestParam String query,
+            @RequestParam(required = false) String query,
             @RequestParam(defaultValue = "latest") String sort
     ) {
         IntegratedSearchResponse response = integratedSearchService.search(query, sort);
