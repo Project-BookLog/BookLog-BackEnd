@@ -1,6 +1,7 @@
 package com.example.booklog.domain.booklog.service;
 
 import com.example.booklog.domain.booklog.dto.BooklogFeedQuery;
+import com.example.booklog.domain.booklog.dto.BooklogFeedResponse;
 import com.example.booklog.domain.booklog.dto.BooklogRecommendationResponse;
 import com.example.booklog.domain.booklog.entity.BooklogPost;
 import com.example.booklog.domain.booklog.view.AuthorView;
@@ -28,4 +29,5 @@ public interface BooklogReadFacade {
     Slice<BooklogPost> findFeedPostsSlice(BooklogFeedQuery query, Pageable pageable);
     BooklogRecommendationResponse buildRecommendations(Long postId);
     void validateCreateRequest(Long userId, Long bookId);
+    BooklogFeedResponse assembleFeedCards(Long viewerId, Slice<BooklogPost> slice);
 }
