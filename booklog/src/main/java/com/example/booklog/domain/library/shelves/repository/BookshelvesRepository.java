@@ -13,4 +13,10 @@ public interface BookshelvesRepository extends JpaRepository<Bookshelves, Long> 
     Optional<Bookshelves> findByIdAndUser_Id(Long shelfId, Long userId);
 
     boolean existsByUser_IdAndName(Long userId, String name);
+
+    /** ✅ (추가) 다른 유저 공개 서재 목록 조회 */
+    List<Bookshelves> findByUser_IdAndIsPublicTrueOrderByIdAsc(Long userId);
+
+    /** ✅ (추가) 다른 유저 공개 서재 접근 검증(소유 + 공개) */
+    boolean existsByIdAndUser_IdAndIsPublicTrue(Long shelfId, Long userId);
 }
