@@ -45,41 +45,54 @@ public class BookMetadataService {
     public List<BookSummary> getBookSummaries(List<BookInfo> bookInfoList) {
         log.info("도서 메타데이터 일괄 조회 시작: {} 건", bookInfoList.size());
 
-        // 1. title 목록 추출
+        // 1. title 목록 추출 (중복 제거)
         List<String> titles = bookInfoList.stream()
                 .map(BookInfo::title)
                 .distinct()
                 .collect(Collectors.toList());
 
+        log.info("중복 제거 후 실제 조회할 도서: {} 건", titles.size());
+
         // 2. DB 일괄 조회
         List<Books> books = booksRepository.findAllByTitleIn(titles);
         Map<String, Books> bookMap = books.stream()
-                .collect(Collectors.toMap(Books::getTitle, b -> b));
+                .collect(Collectors.toMap(Books::getTitle, b -> b, (a, b) -> a));
 
-        // 3. BookSummary 변환
+        log.info("DB 조회 결과: {} 건", bookMap.size());
+
+        // 3. DB에 없는 도서 목록 추출
+        Set<String> missingTitles = titles.stream()
+                .filter(title -> !bookMap.containsKey(title))
+                .collect(Collectors.toSet());
+
+        // 4. 카카오 API 호출 (DB에 없는 도서만)
+        if (!missingTitles.isEmpty()) {
+            log.info("카카오 API 호출 대상 도서: {} 건", missingTitles.size());
+            for (String title : missingTitles) {
+                Books newBook = fetchAndSaveFromKakao(title);
+                if (newBook != null) {
+                    bookMap.put(title, newBook);
+                }
+            }
+        }
+
+        // 5. BookSummary 변환 (원본 순서 유지)
         List<BookSummary> results = new ArrayList<>();
         for (BookInfo info : bookInfoList) {
             Books book = bookMap.get(info.title);
 
             if (book != null) {
-                // DB에 있음 → 바로 변환
                 results.add(createBookSummary(info.bookId, book, info.ranking));
             } else {
-                // DB에 없음 → 카카오 API 호출 후 저장
-                Books newBook = fetchAndSaveFromKakao(info.title);
-                if (newBook != null) {
-                    results.add(createBookSummary(info.bookId, newBook, info.ranking));
-                } else {
-                    // 카카오 API에서도 못 찾음 → null 데이터 반환
-                    results.add(new BookSummary(
-                            info.bookId,
-                            info.title,
-                            null,
-                            null,
-                            null,
-                            info.ranking
-                    ));
-                }
+                // 카카오 API에서도 못 찾음 → null 데이터 반환
+                results.add(new BookSummary(
+                        info.bookId,
+                        info.title,
+                        null,
+                        null,
+                        null,
+                        info.ranking
+                ));
             }
         }
 
@@ -99,7 +112,14 @@ public class BookMetadataService {
         try {
             log.info("카카오 API 호출 시작: title={}", title);
 
-            // 카카오 API 호출
+            // 1. 동시성 문제 방지: 저장하기 전에 DB에 이미 존재하는지 확인
+            Optional<Books> existingBook = booksRepository.findByTitle(title);
+            if (existingBook.isPresent()) {
+                log.info("이미 DB에 존재하는 도서: title={}, bookId={}", title, existingBook.get().getId());
+                return existingBook.get();
+            }
+
+            // 2. 카카오 API 호출
             KakaoBookSearchResponse response = kakaoBookClient.search(title, 1, 1).block();
 
             if (response == null || response.getDocuments().isEmpty()) {
@@ -107,7 +127,7 @@ public class BookMetadataService {
                 return null;
             }
 
-            // 첫 번째 결과로 Books 엔티티 생성
+            // 3. 첫 번째 결과로 Books 엔티티 생성
             KakaoBookSearchResponse.Document doc = response.getDocuments().get(0);
 
             // ISBN 파싱
@@ -128,11 +148,16 @@ public class BookMetadataService {
                     .source(BookSource.KAKAO)
                     .build();
 
-            // DB 저장
-            Books saved = booksRepository.save(book);
-            log.info("카카오 API 응답 DB 저장 완료: title={}, bookId={}", title, saved.getId());
-
-            return saved;
+            // 4. DB 저장 (중복 키 에러 처리)
+            try {
+                Books saved = booksRepository.save(book);
+                log.info("카카오 API 응답 DB 저장 완료: title={}, bookId={}", title, saved.getId());
+                return saved;
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                // 동시성 문제로 이미 다른 트랜잭션에서 저장한 경우 DB에서 다시 조회
+                log.warn("중복 키 에러 발생, DB 재조회: title={}", title);
+                return booksRepository.findByTitle(title).orElse(null);
+            }
 
         } catch (Exception e) {
             log.error("카카오 API 호출 또는 저장 실패: title={}, error={}", title, e.getMessage(), e);
