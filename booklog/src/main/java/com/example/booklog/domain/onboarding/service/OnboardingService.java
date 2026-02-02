@@ -101,11 +101,20 @@ public class OnboardingService {
 
     /**
      * 온보딩 프로필 조회
+     * - 프로필이 없는 경우 빈 응답 반환 (200 OK)
+     * - 500 에러를 발생시키지 않음
+     *
      * @param userId 인증된 사용자 ID
+     * @return 온보딩 프로필 응답 (없으면 빈 응답)
      */
     public OnboardingProfileResponse getOnboardingProfile(Long userId) {
         UserReadingProfile profile = profileRepository.findByUserId(userId)
-                .orElseThrow(() -> new OnboardingProfileNotFoundException());
+                .orElse(null);
+
+        // 프로필이 없으면 빈 응답 반환
+        if (profile == null) {
+            return OnboardingProfileResponse.empty();
+        }
 
         UserOnboardingStatus status = statusRepository.findByUserId(userId).orElse(null);
 
