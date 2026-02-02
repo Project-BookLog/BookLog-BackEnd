@@ -1,21 +1,18 @@
 package com.example.booklog.domain.booklog.service;
 
+import com.example.booklog.domain.booklog.converter.BooklogFeedConverter;
 import com.example.booklog.domain.booklog.converter.BooklogRecommendationConverter;
 import com.example.booklog.domain.booklog.dto.BooklogFeedQuery;
+import com.example.booklog.domain.booklog.dto.BooklogFeedResponse;
+import com.example.booklog.domain.booklog.dto.BooklogPostCardResponse;
 import com.example.booklog.domain.booklog.dto.BooklogRecommendationResponse;
 import com.example.booklog.domain.booklog.entity.BooklogPost;
 import com.example.booklog.domain.booklog.entity.BooklogStatus;
 import com.example.booklog.domain.booklog.entity.BooklogPostTag;
 import com.example.booklog.domain.booklog.port.BookReadPort;
 import com.example.booklog.domain.booklog.port.UserReadPort;
-import com.example.booklog.domain.booklog.repository.BooklogBookmarkRepository;
-import com.example.booklog.domain.booklog.repository.BooklogPostRepository;
-import com.example.booklog.domain.booklog.repository.BooklogPostTagRepository;
-import com.example.booklog.domain.booklog.repository.BooklogRecommendationRepository;
-import com.example.booklog.domain.booklog.view.AuthorView;
-import com.example.booklog.domain.booklog.view.BookView;
-import com.example.booklog.domain.booklog.view.SimilarBookAggView;
-import com.example.booklog.domain.booklog.view.TagView;
+import com.example.booklog.domain.booklog.repository.*;
+import com.example.booklog.domain.booklog.view.*;
 import com.example.booklog.domain.tags.entity.Tags;
 import com.example.booklog.domain.tags.repository.TagsRepository;
 import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
@@ -41,6 +38,9 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
     private final BooklogRecommendationRepository recommendationRepository;
     private final UserReadPort userReadPort;
     private final BookReadPort bookReadPort;
+
+    private final BooklogPostImageRepository postImageRepository;
+    private final BooklogFeedConverter feedConverter;
 
     @Override
     public AuthorView findAuthorSummary(Long userId) {
@@ -179,7 +179,18 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
         return recommendationConverter.toResponse(similarBookCards, popularDtos);
     }
 
-    // ---- TagView 구현체 (TagView가 interface라서) ----
+
+    @Override
+    public void validateCreateRequest(Long userId, Long bookId) {
+        if (!userReadPort.existsById(userId)) {
+            throw new GeneralException(ErrorStatus.USER_NOT_FOUND);
+        }
+        if (!bookReadPort.existsById(bookId)) {
+            throw new GeneralException(ErrorStatus.BOOK_NOT_FOUND);
+        }
+    }
+
+    // TagView 구현체
     static class SimpleTagView implements TagView {
         private final Long tagId;
         private final String name;
@@ -196,15 +207,81 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
         @Override public String getCategory() { return category; }
     }
 
-
     @Override
-    public void validateCreateRequest(Long userId, Long bookId) {
-        if (!userReadPort.existsById(userId)) {
-            throw new GeneralException(ErrorStatus.USER_NOT_FOUND);
+    public BooklogFeedResponse assembleFeedCards(Long viewerId, Slice<BooklogPost> slice) {
+
+        List<BooklogPost> posts = slice.getContent();
+
+        if (posts.isEmpty()) {
+            return feedConverter.toFeedResponse(List.of(), slice.hasNext());
         }
-        if (!bookReadPort.existsById(bookId)) {
-            throw new GeneralException(ErrorStatus.BOOK_NOT_FOUND);
+
+        List<Long> postIds = posts.stream().map(BooklogPost::getId).toList();
+
+        List<Long> userIds = posts.stream().map(BooklogPost::getUserId).distinct().toList();
+        List<Long> bookIds = posts.stream().map(BooklogPost::getBookId).distinct().toList();
+
+        Map<Long, AuthorView> authorMap = findAuthorSummariesByIds(userIds).stream()
+                .collect(Collectors.toMap(AuthorView::getUserId, a -> a));
+
+        Map<Long, BookView> bookMap = findBooksByIds(bookIds).stream()
+                .collect(Collectors.toMap(BookView::getBookId, b -> b));
+
+        // 내가 북마크한 글 set
+        Set<Long> bookmarkedSet = new HashSet<>(
+                bookmarkRepository.findBookmarkedPostIdsByUserIdInPostIds(viewerId, postIds)
+        );
+
+        // 이미지 배치
+        List<PostImageView> imageViews =
+                postImageRepository.findByPostIdInOrderByPostIdAscDisplayOrderAsc(postIds);
+
+        Map<Long, List<PostImageView>> imagesMap = imageViews.stream()
+                .collect(Collectors.groupingBy(
+                        PostImageView::getPostId,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+
+        // 태그 배치 (postId -> tagIds)
+        List<BooklogPostTag> mappings = postTagRepository.findAllByPostIdIn(postIds);
+        Map<Long, List<Long>> postIdToTagIds = mappings.stream()
+                .collect(Collectors.groupingBy(
+                        BooklogPostTag::getPostId,
+                        Collectors.mapping(BooklogPostTag::getTagId, Collectors.toList())
+                ));
+
+        // 카드 조립
+        List<BooklogPostCardResponse> cards = new ArrayList<>();
+        for (BooklogPost p : posts) {
+            Long postId = p.getId();
+
+            AuthorView author = authorMap.get(p.getUserId());
+            BookView book = bookMap.get(p.getBookId());
+
+            List<? extends PostImageView> images = imagesMap.getOrDefault(postId, List.of());
+
+            List<? extends TagView> tags = findTagsByTagIds(
+                    postIdToTagIds.getOrDefault(postId, List.of())
+            );
+
+            boolean bookmarkedByMe = bookmarkedSet.contains(postId);
+
+            cards.add(feedConverter.toCard(
+                    postId,
+                    author,
+                    book,
+                    p.getCreatedAt(),
+                    p.getContent(),
+                    p.getViewCount(),
+                    p.getBookmarkCount(),
+                    bookmarkedByMe,
+                    images,
+                    tags
+            ));
         }
+
+        return feedConverter.toFeedResponse(cards, slice.hasNext());
     }
 
 
