@@ -8,12 +8,13 @@ import com.example.booklog.global.auth.service.AuthQueryService;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -23,6 +24,9 @@ public class AuthController {
 
     private final AuthCommandService authCommandService;
     private final AuthQueryService authQueryService;
+
+    @Value("${SERVER_DOMAIN:http://localhost:8080}")
+    private String serverDomain;
 
     // 회원가입
     @PostMapping("/sign-up")
@@ -58,6 +62,14 @@ public class AuthController {
                 AuthSuccessCode.LOGIN_SUCCESS,
                 authQueryService.refreshToken(dto)
         );
+    }
+
+    // 카카오 소셜 로그인 (OAuth2 리다이렉트)
+    @GetMapping("/kakao/login")
+    @Operation(summary = "카카오 로그인", description = "카카오 OAuth2 로그인 페이지로 리다이렉트합니다.")
+    public void kakaoLogin(HttpServletResponse response) throws IOException {
+        String redirectUrl = serverDomain + "/oauth2/authorization/kakao";
+        response.sendRedirect(redirectUrl);
     }
 
 }
