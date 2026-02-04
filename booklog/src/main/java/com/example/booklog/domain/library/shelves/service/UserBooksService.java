@@ -308,7 +308,22 @@ public class UserBooksService {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND_OR_FORBIDDEN));
 
-        ub.updatePageCountSnapshot(req.pageCountSnapshot());
+        int total = req.pageCountSnapshot();
+
+        // 1) 기본 검증
+        if (total <= 0) throw new GeneralException(ErrorStatus.INVALID_TOTAL_PAGE);
+
+        // 2) 현재 페이지가 더 크면 정책 결정
+        // 정책 A(추천): clamp (현재페이지를 total로 낮춤)
+        if (ub.getCurrentPage() != null && ub.getCurrentPage() > total) {
+            ub.updateCurrentPage(total); // 없으면 만들어야 함
+        }
+
+        ub.updatePageCountSnapshot(total);
+
+        // 3) 진행률도 재계산 (total이 생겼으니까)
+        ub.recalculateProgress(); // (current/total 기반으로)
     }
+
 
 }
