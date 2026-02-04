@@ -62,7 +62,7 @@ public class UserPublicShelvesService {
         // ✅ 공개 서재 검증
         boolean ok = bookshelvesRepository.existsByIdAndUser_IdAndIsPublicTrue(shelfId, userId);
         if (!ok) {
-            throw new GeneralException(ErrorStatus.SHELF_NOT_FOUND"SHELF_NOT_FOUND_OR_PRIVATE");
+            throw new GeneralException(ErrorStatus.SHELF_NOT_FOUND);
         }
 
         List<BookshelfItems> rows = switch (sort) {
