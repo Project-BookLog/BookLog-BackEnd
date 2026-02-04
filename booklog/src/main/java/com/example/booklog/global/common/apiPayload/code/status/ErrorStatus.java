@@ -17,7 +17,6 @@ public enum ErrorStatus implements BaseErrorCode {
     NICKNAME_TOO_LONG(HttpStatus.BAD_REQUEST, "U003", "닉네임은 50자 이하여야 합니다."),
     SELF_FOLLOW_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "U004", "자기 자신을 팔로우/언팔로우할 수 없습니다."),
 
-
     // =========================
     // [File / Upload]
     // =========================
@@ -77,7 +76,9 @@ public enum ErrorStatus implements BaseErrorCode {
     // =========================
     READING_LOG_NOT_FOUND_OR_FORBIDDEN(HttpStatus.NOT_FOUND, "R001", "독서 기록 없음/권한 없음"),
     READING_LOG_UPDATED_FETCH_FAILED(HttpStatus.NOT_FOUND, "R002", "수정된 로그 조회 실패"),
-    UNSUPPORTED_CALENDAR_FORMAT(HttpStatus.NOT_FOUND, "R003", "month 형식이 올바르지 않습니다. 예) 2026-01");
+    UNSUPPORTED_CALENDAR_FORMAT(HttpStatus.NOT_FOUND, "R003", "month 형식이 올바르지 않습니다. 예) 2026-01"),
+    CURRENT_PAGE_EXCEEDS_TOTAL(HttpStatus.BAD_REQUEST, "R004", "현재 페이지가 전체 페이지를 초과할 수 없습니다."),
+    CURRENT_PAGE_INVALID(HttpStatus.BAD_REQUEST, "R005", "현재 페이지는 0 이상이어야 합니다.");
 
 
     private final HttpStatus httpStatus;

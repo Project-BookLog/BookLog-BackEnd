@@ -44,7 +44,6 @@ public class UserBooks extends BaseEntity {
     @Column(name = "progress_percent", nullable = false)
     private int progressPercent;
 
-    //도서 저장/상태 변경을 위한 currentPage
     @Column(name = "current_page")
     private Integer currentPage;
 
@@ -58,8 +57,8 @@ public class UserBooks extends BaseEntity {
     @Column(name = "format", length = 20)
     private BookFormat format; // PAPER/EBOOK/AUDIO 등
 
-    @Column(name = "page_count_snapshot")//유저가 설정한 총 페이지 수(판본/개인 기준). 진행률 계산 기준값
-    private Integer pageCountSnapshot;
+    @Column(name = "page_count_snapshot")
+    private Integer pageCountSnapshot; // 유저가 설정한 총 페이지 수(판본/개인 기준). 진행률 계산 기준값
 
     @Builder
     public UserBooks(Users user, Books book, ReadingStatus status) {
@@ -69,42 +68,131 @@ public class UserBooks extends BaseEntity {
         this.progressPercent = 0;
     }
 
-    public void updateStatus(ReadingStatus status) { this.status = status; }
+    /* =========================
+     * 상태/기본 정보 변경
+     * ========================= */
 
-    public void updateProgress(Integer currentPage, Integer progressPercent) {
-        this.currentPage = currentPage;
-        this.progressPercent = (progressPercent != null) ? progressPercent : this.progressPercent;
+    public void updateStatus(ReadingStatus status) {
+        this.status = status;
     }
 
-    public void setStartDateIfNull(LocalDate date) { if (this.startDate == null) this.startDate = date; }
+    public void changeStatus(ReadingStatus newStatus) {
+        if (newStatus == null) return;
 
-    public void setEndDate(LocalDate date) { this.endDate = date; }
+        this.status = newStatus;
 
-    /*
-    아래 메소드 3개는 사용자의 페이지 입력관련 메소드
-     */
-    public void updatePageCountSnapshot(Integer totalPage) {
-        if (totalPage == null || totalPage < 1) throw new GeneralException(ErrorStatus.TOTAL_PAGE_INVALID);
-        this.pageCountSnapshot = totalPage;
-        recalcProgressPercent();
-    }
+        if (newStatus == ReadingStatus.READING) {
+            setStartDateIfNull(LocalDate.now());
+            this.endDate = null;
+        } else if (newStatus == ReadingStatus.COMPLETED) {
+            setStartDateIfNull(LocalDate.now());
+            this.endDate = LocalDate.now();
 
-    private void recalcProgressPercent() {
-        if (currentPage == null || pageCountSnapshot == null || pageCountSnapshot <= 0) {
-            this.progressPercent = 0;
-            return;
+            // 완료면 진행률 100 + currentPage는 total이 있으면 total로 맞춤
+            if (this.pageCountSnapshot != null) {
+                this.currentPage = this.pageCountSnapshot;
+            }
+            this.progressPercent = 100;
+        } else { // TO_READ / STOPPED
+            this.endDate = null;
+            // 필요하면 TO_READ면 progress 초기화 같은 정책도 여기서 결정
         }
-        this.progressPercent = (int)Math.min(100, Math.round(currentPage * 100.0 / pageCountSnapshot));
     }
 
-    public void updateProgress(Integer currentPage) {
-        this.currentPage = currentPage;
-        recalcProgressPercent();
+    public void setStartDateIfNull(LocalDate date) {
+        if (this.startDate == null) this.startDate = date;
+    }
+
+    public void setEndDate(LocalDate date) {
+        this.endDate = date;
     }
 
     public void updateFormat(BookFormat format) {
         this.format = format;
     }
 
+    /* =========================
+     * 페이지/진행률 관련
+     * ========================= */
 
+    /**
+     * (레거시 호환) 기존 코드에서 호출 중이면 유지.
+     * 내부적으로는 setTotalPages로 위임.
+     */
+    public void updatePageCountSnapshot(Integer totalPage) {
+        setTotalPages(totalPage);
+    }
+
+    /**
+     * 총 페이지 설정.
+     * - totalPages 유효성 검증
+     * - totalPages가 줄어 currentPage가 초과하면 currentPage를 totalPages로 보정(clamp)
+     * - 진행률 재계산
+     */
+    public void setTotalPages(Integer totalPages) {
+        if (totalPages == null || totalPages < 1) {
+            throw new GeneralException(ErrorStatus.TOTAL_PAGE_INVALID);
+        }
+        this.pageCountSnapshot = totalPages;
+
+        if (this.currentPage != null && this.currentPage > totalPages) {
+            this.currentPage = totalPages;
+        }
+
+        recalcProgressPercent();
+    }
+
+    /**
+     * 현재 페이지 설정.
+     * - currentPage 유효성 검증
+     * - totalPages가 존재하면 초과 시 보정(clamp)
+     * - 진행률 재계산
+     */
+    public void setCurrentPage(Integer currentPage) {
+        if (currentPage == null || currentPage < 0) {
+            throw new GeneralException(ErrorStatus.CURRENT_PAGE_INVALID);
+        }
+
+        if (this.pageCountSnapshot != null && currentPage > this.pageCountSnapshot) {
+            currentPage = this.pageCountSnapshot; // clamp 정책
+        }
+
+        this.currentPage = currentPage;
+        recalcProgressPercent();
+    }
+
+    /**
+     * 독서기록 저장/수정 시 user_books에 반영할 때 사용.
+     * - currentPage 반영 + 진행률 재계산
+     * - 상태가 READING이면 시작일 세팅
+     */
+    public void applyReadingProgress(Integer currentPage, LocalDate readDate) {
+        setCurrentPage(currentPage);
+
+        if (this.status == ReadingStatus.READING) {
+            setStartDateIfNull(readDate != null ? readDate : LocalDate.now());
+        }
+    }
+
+    /**
+     * 진행률 재계산 (currentPage / totalPages 기반)
+     */
+    private void recalcProgressPercent() {
+        if (currentPage == null || pageCountSnapshot == null || pageCountSnapshot <= 0) {
+            this.progressPercent = 0;
+            return;
+        }
+        this.progressPercent = (int) Math.min(100, Math.round(currentPage * 100.0 / pageCountSnapshot));
+    }
+
+    /* =========================
+     * (선택) 기존 updateProgress 메서드 제거 권장
+     * =========================
+     * 아래 메서드는 progressPercent를 임의로 세팅할 수 있어 불일치 위험이 큼.
+     * 사용처가 남아있다면 setCurrentPage / setTotalPages로 점진적으로 치환한 뒤 제거하세요.
+     */
+//    public void updateProgress(Integer currentPage, Integer progressPercent) {
+//        this.currentPage = currentPage;
+//        this.progressPercent = (progressPercent != null) ? progressPercent : this.progressPercent;
+//    }
 }
