@@ -7,6 +7,8 @@ import com.example.booklog.domain.library.shelves.entity.Bookshelves;
 import com.example.booklog.domain.library.shelves.repository.BookshelfItemsRepository;
 import com.example.booklog.domain.library.shelves.repository.BookshelvesRepository;
 import com.example.booklog.domain.users.dto.UserPublicShelfListResponse;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
+import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +62,7 @@ public class UserPublicShelvesService {
         // ✅ 공개 서재 검증
         boolean ok = bookshelvesRepository.existsByIdAndUser_IdAndIsPublicTrue(shelfId, userId);
         if (!ok) {
-            throw new IllegalArgumentException("SHELF_NOT_FOUND_OR_PRIVATE");
+            throw new GeneralException(ErrorStatus.SHELF_NOT_FOUND"SHELF_NOT_FOUND_OR_PRIVATE");
         }
 
         List<BookshelfItems> rows = switch (sort) {
