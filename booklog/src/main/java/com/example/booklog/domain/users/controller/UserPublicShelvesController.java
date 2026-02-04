@@ -1,9 +1,8 @@
 package com.example.booklog.domain.users.controller;
 
-import com.example.booklog.domain.library.shelves.service.UserPublicShelvesService;
-import com.example.booklog.domain.library.shelves.service.UserPublicShelvesService.PublicShelfBookSort;
-import com.example.booklog.domain.library.shelves.service.UserPublicShelvesService.PublicShelfBooksResponse;
-import com.example.booklog.domain.library.shelves.service.UserPublicShelvesService.PublicShelfListResponse;
+import com.example.booklog.domain.users.dto.UserPublicShelfListResponse;
+import com.example.booklog.domain.users.service.UserPublicShelvesService;
+import com.example.booklog.domain.users.service.UserPublicShelvesService.PublicShelfBookSort;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(
         name = "다른 유저 공개 서재",
-        description = "다른 유저의 공개 서재 목록/서재 도서 목록 조회 API "
+        description = "다른 유저의 공개 서재 목록/서재 도서 목록 조회 API"
 )
 @RestController
 @RequiredArgsConstructor
@@ -34,7 +33,7 @@ public class UserPublicShelvesController {
             @ApiResponse(responseCode = "404", description = "유저 없음 또는 공개 서재 없음")
     })
     @GetMapping
-    public PublicShelfListResponse listPublicShelves(
+    public UserPublicShelfListResponse listPublicShelves(
             @PathVariable Long userId
     ) {
         return userPublicShelvesService.listPublicShelves(userId);
@@ -55,7 +54,7 @@ public class UserPublicShelvesController {
             @ApiResponse(responseCode = "404", description = "서재 없음 또는 비공개")
     })
     @GetMapping("/{shelfId}/books")
-    public PublicShelfBooksResponse listPublicShelfBooks(
+    public UserPublicShelfListResponse.UserPublicShelfBooksResponse listPublicShelfBooks(
             @PathVariable Long userId,
             @PathVariable Long shelfId,
             @RequestParam(defaultValue = "LATEST") PublicShelfBookSort sort
