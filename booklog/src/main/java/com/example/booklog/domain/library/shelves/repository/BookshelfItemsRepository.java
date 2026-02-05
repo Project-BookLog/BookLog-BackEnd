@@ -16,7 +16,7 @@ public interface BookshelfItemsRepository extends JpaRepository<BookshelfItems, 
     @Query("select bi.book.id from BookshelfItems bi where bi.shelf.id = :shelfId")
     List<Long> findBookIdsByShelfId(@Param("shelfId") Long shelfId);
 
-    /** (선택) 특정 서재에 담긴 BookshelfItems 전체 */
+    /** 특정 서재에 담긴 BookshelfItems 전체 */
     @Query("select bi from BookshelfItems bi where bi.shelf.id = :shelfId")
     List<BookshelfItems> findAllByShelfId(@Param("shelfId") Long shelfId);
 
@@ -34,7 +34,7 @@ public interface BookshelfItemsRepository extends JpaRepository<BookshelfItems, 
     @Query("delete from BookshelfItems bi where bi.shelf.id = :shelfId and bi.book.id = :bookId")
     int deleteByShelfIdAndBookId(@Param("shelfId") Long shelfId, @Param("bookId") Long bookId);
 
-    /** ✅ (추가) 특정 서재에서 선택한 여러 권 제거 */
+    /** 특정 서재에서 선택한 여러 권 제거 */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from BookshelfItems bi where bi.shelf.id = :shelfId and bi.book.id in :bookIds")
     int deleteByShelfIdAndBookIds(@Param("shelfId") Long shelfId, @Param("bookIds") List<Long> bookIds);
@@ -44,18 +44,31 @@ public interface BookshelfItemsRepository extends JpaRepository<BookshelfItems, 
     @Query("delete from BookshelfItems bi where bi.book.id in :bookIds")
     int deleteByBookIds(@Param("bookIds") List<Long> bookIds);
 
-    /** (선택) 특정 책 1권을 모든 서재에서 제거 */
+    /** 특정 책 1권을 모든 서재에서 제거 */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from BookshelfItems bi where bi.book.id = :bookId")
     int deleteByBookId(@Param("bookId") Long bookId);
 
+    // ------------------------
+    // Query (for public shelves)
+    // ------------------------
 
-    /** ✅ 서재 프리뷰 3권(최근 담은 순) - book 즉시 로딩 */
+    /** ✅ (추가) 서재 카드 프리뷰용: 최근 담은 책 3권만 조회 (book 즉시 로딩) */
+    @EntityGraph(attributePaths = "book")
+    List<BookshelfItems> findTop3ByShelf_IdOrderByAddedAtDesc(Long shelfId);
+
+    /** ✅ (추가) 서재 카드에 "n권" 표시용: 해당 서재의 전체 도서 수 */
+    long countByShelf_Id(Long shelfId);
+
+    /** ✅ (추가) 전체보기 정렬(최신순)용: 서재의 전체 도서 목록을 최근 담은 순으로 조회 */
     @EntityGraph(attributePaths = "book")
     List<BookshelfItems> findByShelf_IdOrderByAddedAtDesc(Long shelfId);
 
-    /** ✅ 서재 비우기(UNASSIGN 정책에서 사용) */
-    int deleteByShelf_Id(Long shelfId);
+    /** ✅ (추가) 전체보기 정렬(오래된순)용: 서재의 전체 도서 목록을 오래된 순으로 조회 */
+    @EntityGraph(attributePaths = "book")
+    List<BookshelfItems> findByShelf_IdOrderByAddedAtAsc(Long shelfId);
 
-
+    /** ✅ (추가) 전체보기 정렬(제목순)용: 서재의 전체 도서 목록을 제목 오름차순으로 조회 */
+    @EntityGraph(attributePaths = "book")
+    List<BookshelfItems> findByShelf_IdOrderByBook_TitleAsc(Long shelfId);
 }

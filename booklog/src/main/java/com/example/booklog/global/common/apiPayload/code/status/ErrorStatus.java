@@ -61,6 +61,7 @@ public enum ErrorStatus implements BaseErrorCode {
     SHELF_NOT_FOUND_OR_NOT_OWNED(HttpStatus.NOT_FOUND, "S002", "서재 없음 또는 내 서재 아님"),
     SHELF_NOT_OWNED(HttpStatus.NOT_FOUND, "S003", "내 서재 아님"),
     DUPLICATE_SHELF_NAME(HttpStatus.NOT_FOUND, "S004", "중복된 서재 이름"),
+    SHELF_NOT_FOUND_OR_PRIVATE(HttpStatus.NOT_FOUND, "S005", "비공개인 서재 또는 서재 없음"),
 
     // =========================
     // [UserBooks / Library]
