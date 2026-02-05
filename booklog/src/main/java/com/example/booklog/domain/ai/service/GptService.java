@@ -11,6 +11,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -293,5 +294,109 @@ public class GptService {
             throw new RuntimeException("GPT 응답 파싱 실패", e);
         }
     }
+
+
+    /**
+     * 마이페이지 - 월간 독서 현황 회색 문구 생성
+     * @param month YYYY-MM
+     * @param progressPercent 완독/(완독+읽는중) 퍼센트
+     * @param topMoodTags 분위기 태그 Top3 (없을 수도 있음)
+     * @return 짧은 요약 문장(1~2문장)
+     */
+    public String generateMonthlyReadingStatusSummary(YearMonth month, int progressPercent, List<String> topMoodTags) {
+        //월 독서현황 회색 문구를 실제로 만들어서 문자열로 리턴하는 “메인 함수"
+        try {
+            String prompt = buildMonthlyReadingStatusPrompt(month, progressPercent, topMoodTags);
+
+            // system prompt는 추천전문가보다 "짧은 문구 작성자"가 맞음
+            String gptResponse = callGptApiForSimpleText(
+                    "당신은 독서 앱의 UX 라이터입니다. 사용자의 월간 독서 현황을 따뜻하고 짧게 요약합니다.",
+                    prompt
+            );
+
+            String text = (gptResponse == null) ? null : gptResponse.trim();
+
+            // 너무 길면 UI 터질 수 있으니 안전장치(원하면 길이 조정)
+            if (text != null && text.length() > 120) {
+                text = text.substring(0, 120).trim();
+            }
+            return text;
+
+        } catch (Exception e) {
+            return defaultMonthlySummary(progressPercent, topMoodTags);
+        }
+    }
+
+    private String buildMonthlyReadingStatusPrompt(YearMonth month, int progressPercent, List<String> topMoodTags) {
+        //GPT에게 보내는 “요청 메시지(prompt)”를 조립하는 함수
+        String tags = (topMoodTags == null || topMoodTags.isEmpty())
+                ? "없음"
+                : String.join(", ", topMoodTags);
+
+        return """
+                다음 정보로 독서 앱 마이페이지에 들어갈 '회색 한 줄/두 줄' 요약 문구를 작성해줘.
+                - 대상 월: %s
+                - 독서 진행 퍼센트: %d%%
+                - 이번 달 분위기 태그 TOP: %s
+
+                조건:
+                1) 한국어로 1~2문장
+                2) 120자 이내
+                3) 과장/광고 문구 금지, 담백하게
+                4) 태그가 있으면 자연스럽게 1개 이상 언급
+                5) 따옴표, 이모지 사용하지 말 것
+                """.formatted(month, progressPercent, tags);
+    }
+
+    private String defaultMonthlySummary(int progressPercent, List<String> topMoodTags) {
+        String tag = (topMoodTags != null && !topMoodTags.isEmpty()) ? topMoodTags.get(0) : null;
+        if (tag == null) {
+            return "이번 달도 차근차근 독서 흐름을 이어가고 있어요.";
+        }
+        return "이번 달은 " + tag + " 분위기의 책들과 함께 독서 흐름을 이어가고 있어요.";
+    }
+
+    /**
+     * "요약/문구" 같이 단순 텍스트 생성용 호출 래퍼
+     * - 기존 callGptApi는 system 프롬프트가 '도서 추천 전문가'로 고정돼 있어서 분리
+     */
+    private String callGptApiForSimpleText(String systemMessage, String userPrompt) {
+        try {
+            String apiKey = gptConfig.getSecretKey();
+            if (apiKey == null || apiKey.isEmpty() || apiKey.equals("dummy-key-for-development")) {
+                throw new RuntimeException("GPT API 키 미설정");
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", gptConfig.getModel());
+            requestBody.put("messages", List.of(
+                    Map.of("role", "system", "content", systemMessage),
+                    Map.of("role", "user", "content", userPrompt)
+            ));
+            requestBody.put("temperature", 0.6);
+            requestBody.put("max_tokens", 200);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    OPENAI_API_URL,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return extractContentFromResponse(response.getBody());
+            } else {
+                throw new RuntimeException("GPT API 호출 실패: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("GPT API 호출 실패", e);
+        }
+    }
+
 }
 

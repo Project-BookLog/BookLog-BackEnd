@@ -81,6 +81,7 @@ public enum ErrorStatus implements BaseErrorCode {
     CURRENT_PAGE_INVALID(HttpStatus.BAD_REQUEST, "R005", "현재 페이지는 0 이상이어야 합니다.");
 
 
+
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;

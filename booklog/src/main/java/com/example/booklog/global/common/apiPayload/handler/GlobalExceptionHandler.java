@@ -5,6 +5,7 @@ import com.example.booklog.global.auth.exception.AuthException;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
 import com.example.booklog.global.common.apiPayload.code.BaseErrorCode;
 import com.example.booklog.global.common.apiPayload.code.generalStatus.GeneralErrorCode;
+import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
 import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -101,5 +103,15 @@ public class GlobalExceptionHandler {
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
             case DUPLICATE_EMAIL, INVALID_EMAIL_FORMAT, INVALID -> HttpStatus.BAD_REQUEST;
         };
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ApiResponse<?> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        // @RequestParam YearMonth month 변환 실패 케이스
+        if ("month".equals(e.getName())) {
+            return ApiResponse.onFailure(ErrorStatus.UNSUPPORTED_CALENDAR_FORMAT);
+        }
+        // 나머지는 프로젝트 정책대로 (원하면 더 세분화 가능)
+        return ApiResponse.onFailure(GeneralErrorCode.BAD_REQUEST);
     }
 }
