@@ -39,16 +39,6 @@ public interface BookshelfItemsRepository extends JpaRepository<BookshelfItems, 
     @Query("delete from BookshelfItems bi where bi.shelf.id = :shelfId and bi.book.id in :bookIds")
     int deleteByShelfIdAndBookIds(@Param("shelfId") Long shelfId, @Param("bookIds") List<Long> bookIds);
 
-    /** 특정 bookIds를 모든 서재에서 제거 (라이브러리 완전 삭제 시 사용) */
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("delete from BookshelfItems bi where bi.book.id in :bookIds")
-    int deleteByBookIds(@Param("bookIds") List<Long> bookIds);
-
-    /** 특정 책 1권을 모든 서재에서 제거 */
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("delete from BookshelfItems bi where bi.book.id = :bookId")
-    int deleteByBookId(@Param("bookId") Long bookId);
-
     // ------------------------
     // Query (for public shelves)
     // ------------------------
@@ -71,4 +61,25 @@ public interface BookshelfItemsRepository extends JpaRepository<BookshelfItems, 
     /** ✅ (추가) 전체보기 정렬(제목순)용: 서재의 전체 도서 목록을 제목 오름차순으로 조회 */
     @EntityGraph(attributePaths = "book")
     List<BookshelfItems> findByShelf_IdOrderByBook_TitleAsc(Long shelfId);
+
+    /** ✅ (필수) 내 서재들에서만 bookIds 제거 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        delete from BookshelfItems bi
+        where bi.book.id in :bookIds
+          and bi.shelf.user.id = :userId
+    """)
+    int deleteByUserIdAndBookIds(@Param("userId") Long userId,
+                                 @Param("bookIds") List<Long> bookIds);
+
+    /** ✅ 내 서재들에서만 bookId 제거 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        delete from BookshelfItems bi
+        where bi.book.id = :bookId
+          and bi.shelf.user.id = :userId
+    """)
+    int deleteByUserIdAndBookId(@Param("userId") Long userId,
+                                @Param("bookId") Long bookId);
+
 }

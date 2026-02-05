@@ -1,6 +1,7 @@
 package com.example.booklog.domain.library.shelves.repository;
 
 import com.example.booklog.domain.library.shelves.entity.ReadingLogs;
+import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
@@ -59,5 +60,25 @@ public interface ReadingLogsRepository extends JpaRepository<ReadingLogs, Long> 
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    /** ✅ 내 저장도서(userBookIds) 완전 삭제 시 로그 먼저 제거 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        delete from ReadingLogs rl
+        where rl.userBook.id in :userBookIds
+          and rl.userBook.user.id = :userId
+    """)
+    int deleteByUserIdAndUserBookIds(@Param("userId") Long userId,
+                                     @Param("userBookIds") List<Long> userBookIds);
+
+    /** ✅ 상태/전체 삭제 시: userId 기준으로 로그 제거 */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        delete from ReadingLogs rl
+        where rl.userBook.user.id = :userId
+          and (:status is null or rl.userBook.status = :status)
+    """)
+    int deleteByUserIdAndStatus(@Param("userId") Long userId,
+                                @Param("status") ReadingStatus status);
 
 }
