@@ -15,10 +15,12 @@ public class WebConfig implements WebMvcConfigurer {
                         "http://127.0.0.1:*",
                         "https://localhost:*",
                         "https://127.0.0.1:*",
+
                         "https://dev.booklog.online",
                         "https://booklog.online",
-                        "http://localhost:*",
-                        "https://localhost:*"
+
+                        "http://192.168.*.*:*", // ✅ 모바일 테스트(같은 와이파이 대역)
+                        "https://192.168.*.*:*"
                 )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
