@@ -2,8 +2,10 @@ package com.example.booklog.global.auth.service;
 
 import com.example.booklog.domain.users.entity.AuthAccounts;
 import com.example.booklog.domain.users.entity.AuthProvider;
+import com.example.booklog.domain.users.entity.UserSettings;
 import com.example.booklog.domain.users.entity.UserStatus;
 import com.example.booklog.domain.users.entity.Users;
+import com.example.booklog.domain.users.repository.UserSettingsRepository;
 import com.example.booklog.domain.users.repository.UsersRepository;
 import com.example.booklog.global.auth.repository.AuthAccountsRepository;
 import com.example.booklog.global.auth.dto.KakaoOAuth2UserInfo;
@@ -30,6 +32,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final AuthAccountsRepository authAccountsRepository;
     private final UsersRepository usersRepository;
+    private final UserSettingsRepository userSettingsRepository;
 
     @Override
     @Transactional
@@ -102,6 +105,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .role(Role.ROLE_USER)
                 .build();
 
-        return authAccountsRepository.save(newAuthAccount);
+        authAccountsRepository.save(newAuthAccount);
+
+        // UserSettings 생성 (서재/북로그 공개 설정 기본값: true)
+        UserSettings userSettings = UserSettings.builder()
+                .user(newUser)
+                .isShelfPublic(true)
+                .isPostPublic(true)
+                .build();
+        userSettingsRepository.save(userSettings);
+
+        return newAuthAccount;
     }
 }

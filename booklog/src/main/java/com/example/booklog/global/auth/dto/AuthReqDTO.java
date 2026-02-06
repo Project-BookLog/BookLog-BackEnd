@@ -42,4 +42,11 @@ public class AuthReqDTO {
             @NotBlank
             String refreshToken
     ) {}
+
+    // 로그아웃
+    @Schema(name = "AuthLogoutRequest")
+    public record LogoutDTO(
+            @NotBlank(message = "리프레시 토큰을 입력해주세요.")
+            String refreshToken
+    ) {}
 }

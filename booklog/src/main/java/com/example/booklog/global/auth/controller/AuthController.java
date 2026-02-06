@@ -72,4 +72,16 @@ public class AuthController {
         response.sendRedirect(redirectUrl);
     }
 
+    // 로그아웃
+    @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "리프레시 토큰을 무효화하여 로그아웃합니다. 인앱 로그인과 소셜 로그인 모두 사용 가능합니다.")
+    public ApiResponse<AuthResDTO.LogoutDTO> logout(
+            @RequestBody @Valid AuthReqDTO.LogoutDTO dto
+    ) {
+        return ApiResponse.onSuccess(
+                AuthSuccessCode.LOGOUT_SUCCESS,
+                authCommandService.logout(dto)
+        );
+    }
+
 }

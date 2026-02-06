@@ -28,4 +28,12 @@ public class AuthResDTO {
 
             Long expiresIn
     ){}
+
+    // 로그아웃
+    @Builder
+    @Schema(name = "AuthLogoutResponse", description = "로그아웃 응답")
+    public record LogoutDTO(
+
+            String message
+    ){}
 }
