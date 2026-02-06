@@ -19,6 +19,9 @@ public interface AuthAccountsRepository extends JpaRepository<AuthAccounts, Long
     // user로 모든 인증 수단 조회
     List<AuthAccounts> findByUser(Users user);
 
+    // userId로 조회 (회원탈퇴용)
+    Optional<AuthAccounts> findByUser_Id(Long userId);
+
     // provider_id와 provider로 조회 (OAuth용)
     Optional<AuthAccounts> findByProviderIdAndProvider(String providerId, AuthProvider provider);
 }

@@ -49,4 +49,11 @@ public class AuthReqDTO {
             @NotBlank(message = "리프레시 토큰을 입력해주세요.")
             String refreshToken
     ) {}
+
+    // 회원탈퇴
+    @Schema(name = "AuthDeleteAccountRequest", description = "회원탈퇴 요청")
+    public record DeleteAccountDTO(
+            @NotBlank(message = "비밀번호를 입력해주세요. 소셜 로그인 사용자는 빈 문자열이 아닌 임의의 값을 입력하세요.")
+            String password
+    ) {}
 }

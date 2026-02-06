@@ -36,4 +36,12 @@ public class AuthResDTO {
 
             String message
     ){}
+
+    // 회원탈퇴
+    @Builder
+    @Schema(name = "AuthDeleteAccountResponse", description = "회원탈퇴 응답")
+    public record DeleteAccountDTO(
+
+            String message
+    ){}
 }

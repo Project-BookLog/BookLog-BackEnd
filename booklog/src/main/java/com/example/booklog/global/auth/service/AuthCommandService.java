@@ -8,4 +8,6 @@ public interface AuthCommandService {
     AuthResDTO.JoinDTO signup(AuthReqDTO.JoinDTO dto);
 
     AuthResDTO.LogoutDTO logout(AuthReqDTO.LogoutDTO dto);
+
+    AuthResDTO.DeleteAccountDTO deleteAccount(Long userId, AuthReqDTO.DeleteAccountDTO dto);
 }

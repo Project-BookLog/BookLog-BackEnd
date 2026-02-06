@@ -14,7 +14,8 @@ public enum AuthErrorCode {
     TOKEN_EXPIRED("AUTH_005", "토큰이 만료되었습니다."),
     INVALID_TOKEN("AUTH_006", "유효하지 않은 토큰입니다."),
     DUPLICATE_EMAIL("AUTH_007", "이미 존재하는 이메일입니다."),
-    INVALID_EMAIL_FORMAT("AUTH_008", "올바르지 않은 이메일 형식입니다.");
+    INVALID_EMAIL_FORMAT("AUTH_008", "올바르지 않은 이메일 형식입니다."),
+    INVALID_PASSWORD("AUTH_009", "비밀번호가 올바르지 않습니다. 회원탈퇴를 진행할 수 없습니다.");
 
     private final String code;
     private final String message;
