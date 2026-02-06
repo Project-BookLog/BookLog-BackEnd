@@ -1,6 +1,5 @@
 package com.example.booklog.domain.users.repository;
 
-import com.example.booklog.domain.library.shelves.entity.UserBooks;
 import com.example.booklog.domain.users.repository.projection.MonthlyStatusCountProjection;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
@@ -9,52 +8,62 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.List;
 
-public interface ReadingStatusQueryRepository extends Repository<UserBooks, Long> {
+public interface ReadingStatusQueryRepository extends Repository<Object, Long> {
 
+    /**
+     * 이번 달에 reading_logs(read_date)가 존재하는 user_books만 대상으로
+     * COMPLETED / READING 카운트 집계
+     *
+     * progressPercent = completed / (completed + reading)
+     */
     @Query(value = """
-        WITH month_books AS (
-          SELECT DISTINCT ub.user_book_id
-          FROM user_books ub
-          JOIN reading_logs rl ON rl.user_book_id = ub.user_book_id
-          WHERE ub.user_id = :userId
-            AND rl.read_date >= :monthStart
-            AND rl.read_date <  :monthEnd
-        )
         SELECT
           SUM(CASE WHEN ub.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completedCnt,
           SUM(CASE WHEN ub.status = 'READING'   THEN 1 ELSE 0 END) AS readingCnt
         FROM user_books ub
-        JOIN month_books mb ON mb.user_book_id = ub.user_book_id
+        WHERE ub.user_id = :userId
+          AND EXISTS (
+              SELECT 1
+              FROM reading_logs rl
+              WHERE rl.user_book_id = ub.user_book_id
+                AND rl.read_date >= :startDate
+                AND rl.read_date <  :endDate
+          )
         """, nativeQuery = true)
     MonthlyStatusCountProjection findMonthlyStatusCounts(
             @Param("userId") Long userId,
-            @Param("monthStart") LocalDate monthStart,
-            @Param("monthEnd") LocalDate monthEnd
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
     );
 
+    /**
+     * 이번 달에 "읽은 기록이 있는 책들"의 MOOD 태그 Top N
+     * - status 상관없이 월간 기록(rl.read_date)으로 책을 선정
+     * - 책 중복 제거: DISTINCT book_id
+     */
     @Query(value = """
-        WITH month_books AS (
-          SELECT DISTINCT ub.user_book_id
-          FROM user_books ub
-          JOIN reading_logs rl ON rl.user_book_id = ub.user_book_id
-          WHERE ub.user_id = :userId
-            AND rl.read_date >= :monthStart
-            AND rl.read_date <  :monthEnd
+        WITH monthly_books AS (
+            SELECT DISTINCT ub.book_id
+            FROM user_books ub
+            JOIN reading_logs rl
+              ON rl.user_book_id = ub.user_book_id
+            WHERE ub.user_id = :userId
+              AND rl.read_date >= :startDate
+              AND rl.read_date <  :endDate
         )
         SELECT t.name
-        FROM month_books mb
-        JOIN user_books ub ON ub.user_book_id = mb.user_book_id
-        JOIN book_tags bt ON bt.book_id = ub.book_id
+        FROM monthly_books mb
+        JOIN book_tags bt ON bt.book_id = mb.book_id
         JOIN tags t ON t.tag_id = bt.tag_id
         WHERE t.category = 'MOOD'
-        GROUP BY t.tag_id, t.name
+        GROUP BY t.name
         ORDER BY COUNT(*) DESC, t.name ASC
         LIMIT :limit
         """, nativeQuery = true)
     List<String> findTopMoodTags(
             @Param("userId") Long userId,
-            @Param("monthStart") LocalDate monthStart,
-            @Param("monthEnd") LocalDate monthEnd,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
             @Param("limit") int limit
     );
 }

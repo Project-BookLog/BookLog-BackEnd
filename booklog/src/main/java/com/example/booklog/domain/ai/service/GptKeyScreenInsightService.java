@@ -1,4 +1,4 @@
-package com.example.booklog.domain.users.service;
+package com.example.booklog.domain.ai.service;
 
 import com.example.booklog.global.config.GptConfig;
 import com.fasterxml.jackson.databind.JsonNode;

@@ -1,7 +1,8 @@
+// controller
 package com.example.booklog.domain.users.controller;
 
-import com.example.booklog.domain.users.dto.MyPageResponse;
-import com.example.booklog.domain.users.service.MyPageService;
+import com.example.booklog.domain.users.dto.CalendarReadingStatusResponse;
+import com.example.booklog.domain.users.service.CalendarReadingStatusService;
 import com.example.booklog.global.auth.security.CustomUserDetails;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
 import com.example.booklog.global.common.apiPayload.code.status.SuccessStatus;
@@ -14,21 +15,23 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.YearMonth;
 
-@Tag(name = "마이페이지 - 키스크린", description = "마이페이지 대시보드(키스크린) 조회")
+@Tag(name = "마이페이지 - 캘린더(독서현황 AI 멘트)", description = "캘린더 페이지 상단 AI 멘트(월별) 조회")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/me")
-public class MeMyPageController {
+public class MeCalendarReadingStatusController {
 
-    private final MyPageService myPageService;
+    private final CalendarReadingStatusService calendarReadingStatusService;
 
-    @Operation(summary = "키스크린 조회", description = "month=YYYY-MM")
-    @GetMapping("/mypage")
-    public ApiResponse<MyPageResponse> getMyPage(
+    @Operation(summary = "캘린더 AI 멘트 조회", description = "month=YYYY-MM")
+    @GetMapping("/reading-status")
+    public ApiResponse<CalendarReadingStatusResponse> getCalendarReadingStatus(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
-        MyPageResponse res = myPageService.getMyPage(userDetails.getUserId(), month);
+        CalendarReadingStatusResponse res =
+                calendarReadingStatusService.getCalendarReadingStatus(userDetails.getUserId(), month);
+
         return ApiResponse.onSuccess(SuccessStatus.OK, res);
     }
 }

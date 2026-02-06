@@ -6,8 +6,8 @@ public record ReadingStatusResponse(
         String month,                 // "YYYY-MM"
         int progressPercent,          // 0~100
         DayProgress dayProgress,      // { currentDay, lastDay }
-        List<String> topMoodTags,     // 분위기 태그 Top3
-        String aiSummary              // 캘린더용 회색 문구(UX 라이터 톤)
+        List<String> topMoodTags,     // Top3
+        String aiSummary              // GPT/기본문구
 ) {
     public record DayProgress(int currentDay, int lastDay) {}
 }
