@@ -296,6 +296,7 @@ public class GptService {
     }
 
 
+
     /**
      * 마이페이지 - 월간 독서 현황 회색 문구 생성
      * @param month YYYY-MM
@@ -310,7 +311,8 @@ public class GptService {
 
             // system prompt는 추천전문가보다 "짧은 문구 작성자"가 맞음
             String gptResponse = callGptApiForSimpleText(
-                    "당신은 독서 앱의 UX 라이터입니다. 사용자의 월간 독서 현황을 따뜻하고 짧게 요약합니다.",
+                    "너는 독서 기록 서비스의 요약 카피를 쓰는 UX 라이터야.\n" +
+                            "사용자 독서 취향 데이터를 기반으로 관찰자 시점에서 따뜻하지만 과장 없이 2문장 이내의 독서 현황 요약 문장을 작성해줘.",
                     prompt
             );
 

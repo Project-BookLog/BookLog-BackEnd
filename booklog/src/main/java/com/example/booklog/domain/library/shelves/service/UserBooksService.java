@@ -301,11 +301,19 @@ public class UserBooksService {
     @Transactional
     public void saveTotalPage(Long userId, Long userBookId, TotalPageSaveRequest req) {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
-                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND_OR_FORBIDDEN));
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND));
 
         int total = req.pageCountSnapshot();
+        if (total <= 0) {
+            throw new GeneralException(ErrorStatus.TOTAL_PAGE_INVALID);
+        }
 
-        // ✅ 엔티티 메서드가 검증 + clamp + progress 재계산까지 책임짐
+        Integer current = ub.getCurrentPage();
+        if (current != null && current > total) {
+            throw new GeneralException(ErrorStatus.CURRENT_PAGE_EXCEEDS_TOTAL);
+        }
+
         ub.setTotalPages(total);
+
     }
 }

@@ -54,7 +54,7 @@ public class ReadingLogsController {
                                     value = """
                                             {
                                               "readDate": "2026-01-10",
-                                              "pagesRead": 57
+                                              "currentPage": 57
                                             }
                                             """
                             )

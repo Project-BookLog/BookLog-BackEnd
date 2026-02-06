@@ -68,8 +68,8 @@ public enum ErrorStatus implements BaseErrorCode {
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "책 없음"),
     USER_BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "LB001", "저장 도서 없음"),
     USER_BOOK_NOT_FOUND_OR_FORBIDDEN(HttpStatus.NOT_FOUND, "LB002", "저장 도서 없음/권한 없음"),
-    TOTAL_PAGE_INVALID(HttpStatus.BAD_REQUEST, "LB003", "총 페이지는 1 이상이어야 합니다."),
-    INVALID_TOTAL_PAGE(HttpStatus.BAD_REQUEST, "LB004", "총 페이지를 입력해야합니다"),
+    TOTAL_PAGE_INVALID(HttpStatus.BAD_REQUEST, "LB003", "총 페이지는 양수이어야 합니다."),
+    TOTAL_PAGE_REQUIRED(HttpStatus.CONFLICT, "LB004", "총 페이지 정보가 없어 독서 기록을 저장할 수 없습니다."),
 
     // =========================
     // [Reading Logs]
