@@ -18,13 +18,13 @@ import java.time.YearMonth;
 @Tag(name = "마이페이지 - 캘린더(독서현황 AI 멘트)", description = "캘린더 페이지 상단 AI 멘트(월별) 조회")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/me")
+@RequestMapping("/api/v1/me/reading-calendar")
 public class MeCalendarReadingStatusController {
 
     private final CalendarReadingStatusService calendarReadingStatusService;
 
     @Operation(summary = "캘린더 AI 멘트 조회", description = "month=YYYY-MM")
-    @GetMapping("/reading-status")
+    @GetMapping("/insight")
     public ApiResponse<CalendarReadingStatusResponse> getCalendarReadingStatus(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
