@@ -14,7 +14,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class KeyScreenInsightFacadeService {
+public class KeyScreenInsightService {
 
     private final ReadingStatusQueryRepository readingStatusQueryRepository;
     private final GptKeyScreenInsightService gptKeyScreenInsightService;
