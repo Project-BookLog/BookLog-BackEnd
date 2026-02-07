@@ -1,14 +1,15 @@
 package com.example.booklog.domain.users.repository;
 
+import com.example.booklog.domain.users.entity.Users;
 import com.example.booklog.domain.users.repository.projection.MonthlyStatusCountProjection;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
 
-public interface ReadingStatusQueryRepository extends Repository<Object, Long> {
+public interface ReadingStatusQueryRepository extends JpaRepository<Users, Long> {
 
     /**
      * 이번 달에 reading_logs(read_date)가 존재하는 user_books만 대상으로
