@@ -7,5 +7,6 @@ import java.time.LocalDate;
 
 public record ReadingLogSaveRequest(
         @NotNull LocalDate readDate,
-        @NotNull @Min(0) Integer pagesRead
+        @NotNull @Min(0) Integer currentPage
 ) {}
+

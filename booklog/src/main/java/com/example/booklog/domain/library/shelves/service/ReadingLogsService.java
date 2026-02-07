@@ -29,31 +29,32 @@ public class ReadingLogsService {
         UserBooks ub = userBooksRepository.findByUser_IdAndId(userId, userBookId)
                 .orElseThrow(() -> new GeneralException(ErrorStatus.USER_BOOK_NOT_FOUND));
 
-        // prevCurrent 계산 (기존 유지)
+        Integer total = ub.getPageCountSnapshot();
+        if (total == null || total < 0) {
+            throw new GeneralException(ErrorStatus.TOTAL_PAGE_REQUIRED); // 409
+        }
+
         int prevCurrent = readingLogsRepository
                 .findTopByUserBook_IdOrderByReadDateDescCreatedAtDesc(userBookId)
                 .map(ReadingLogs::getCurrentPage)
                 .orElse(0);
 
-        int pagesRead = (req.pagesRead() == null) ? 0 : Math.max(0, req.pagesRead());
-        int newCurrent = Math.max(0, prevCurrent + pagesRead);
+        int inputCurrent = Math.max(0, req.currentPage());
+        // total 기준 clamp
+        inputCurrent = Math.min(inputCurrent, total);
 
-        // total page 있으면 clamp
-        Integer total = ub.getPageCountSnapshot();
-        if (total != null && total > 0) {
-            newCurrent = Math.min(newCurrent, total);
-        }
+        int pagesRead = inputCurrent - prevCurrent; // 음수 가능
 
         ReadingLogs saved = readingLogsRepository.save(
                 ReadingLogs.builder()
                         .userBook(ub)
                         .readDate(req.readDate())
                         .pagesRead(pagesRead)
-                        .currentPage(newCurrent)
+                        .currentPage(inputCurrent)
                         .build()
         );
 
-        // 저장 후 전체 재계산(로그 누적 + user_books)
+        // 저장 후 전체 재계산(중간 수정/삭제 대비)
         recalcLogsAndUserBook(ub);
 
         return new ReadingLogResponse(
@@ -65,6 +66,7 @@ public class ReadingLogsService {
         );
     }
 
+
     /** PATCH /api/v1/reading-logs/{logId} */
     @Transactional
     public ReadingLogResponse update(Long userId, Long logId, ReadingLogSaveRequest req) {
@@ -73,14 +75,19 @@ public class ReadingLogsService {
 
         UserBooks ub = log.getUserBook();
 
-        int pagesRead = (req.pagesRead() == null) ? 0 : Math.max(0, req.pagesRead());
+        Integer total = ub.getPageCountSnapshot();
+        if (total == null || total <= 0) {
+            throw new GeneralException(ErrorStatus.TOTAL_PAGE_REQUIRED);
+        }
 
-        // readDate/pagesRead만 수정 (currentPage는 전체 재계산에서 다시 덮어씀)
-        log.update(req.readDate(), pagesRead, log.getCurrentPage());
+        int inputCurrent = Math.max(0, req.currentPage());
+        inputCurrent = Math.min(inputCurrent, total);
+
+        // 일단 로그에 absolute currentPage를 반영 (pagesRead는 recalc에서 재계산)
+        log.update(req.readDate(), log.getPagesRead(), inputCurrent);
 
         recalcLogsAndUserBook(ub);
 
-        // 영속 상태에서 바로 반환해도 OK (굳이 재조회 필요 없음)
         return new ReadingLogResponse(
                 log.getId(),
                 ub.getId(),
@@ -89,6 +96,7 @@ public class ReadingLogsService {
                 log.getCurrentPage()
         );
     }
+
 
     /** DELETE /api/v1/reading-logs/{logId} */
     @Transactional
@@ -108,23 +116,34 @@ public class ReadingLogsService {
         List<ReadingLogs> logs = readingLogsRepository
                 .findByUserBook_IdOrderByReadDateAscCreatedAtAsc(ub.getId());
 
-        int running = 0;
         Integer total = ub.getPageCountSnapshot();
-
-        for (ReadingLogs rl : logs) {
-            int pages = (rl.getPagesRead() == null) ? 0 : Math.max(0, rl.getPagesRead());
-            running += pages;
-
-            if (total != null && total > 0) {
-                running = Math.min(running, total);
-            }
-
-            // 각 로그의 누적 currentPage 갱신
-            rl.update(rl.getReadDate(), pages, running);
+        if (total == null || total <= 0) {
+            throw new GeneralException(ErrorStatus.TOTAL_PAGE_REQUIRED);
         }
 
-        applyUserBookFromComputed(ub, logs, running);
+        int prev = 0;
+
+        for (ReadingLogs rl : logs) {
+            // null 안전 처리
+            int cur = (rl.getCurrentPage() == null) ? 0 : Math.max(0, rl.getCurrentPage());
+
+            // total 기준 clamp
+            cur = Math.min(cur, total);
+
+            // ✅ 되돌림 허용: cur < prev여도 OK (pagesRead가 음수가 됨)
+            int delta = cur - prev;
+
+            // pagesRead(=delta)는 서버 계산값으로 통일해서 덮어씀
+            rl.update(rl.getReadDate(), delta, cur);
+
+            prev = cur;
+        }
+
+        // user_books는 "마지막 로그 currentPage"가 최신 상태
+        applyUserBookFromComputed(ub, logs, prev);
     }
+
+
 
     private void applyUserBookFromComputed(UserBooks ub, List<ReadingLogs> logs, int currentPageComputed) {
         if (!logs.isEmpty()) {

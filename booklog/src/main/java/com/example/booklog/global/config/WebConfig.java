@@ -20,7 +20,9 @@ public class WebConfig implements WebMvcConfigurer {
                         "https://booklog.online",
 
                         "http://192.168.*.*:*", // ✅ 모바일 테스트(같은 와이파이 대역)
-                        "https://192.168.*.*:*"
+                        "https://192.168.*.*:*",
+
+                        "https://booklog-project.vercel.app"
                 )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
