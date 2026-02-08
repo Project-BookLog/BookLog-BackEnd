@@ -7,6 +7,7 @@ import com.example.booklog.global.common.apiPayload.code.BaseErrorCode;
 import com.example.booklog.global.common.apiPayload.code.generalStatus.GeneralErrorCode;
 import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
 import com.example.booklog.global.common.apiPayload.exception.GeneralException;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -76,6 +77,21 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
+     * EntityNotFoundException 처리 (JPA 엔티티를 찾을 수 없는 경우)
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiResponse<String>> handleEntityNotFoundException(EntityNotFoundException e) {
+        log.error("EntityNotFoundException: {}", e.getMessage());
+
+        ApiResponse<String> response = ApiResponse.onFailure(
+                GeneralErrorCode.NOT_FOUND,
+                e.getMessage()
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     /**
