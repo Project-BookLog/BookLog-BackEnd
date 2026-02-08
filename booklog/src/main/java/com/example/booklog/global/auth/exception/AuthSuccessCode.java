@@ -11,6 +11,7 @@ public enum AuthSuccessCode {
     LOGIN_SUCCESS("AUTH_S002", "로그인에 성공했습니다."),
     LOGOUT_SUCCESS("AUTH_S003", "로그아웃되었습니다."),
     TOKEN_REFRESH_SUCCESS("AUTH_S004", "토큰이 갱신되었습니다."),
+    DELETE_ACCOUNT_SUCCESS("AUTH_S005", "회원탈퇴가 완료되었습니다."),
 
     // ✅ 공통/조회 성공 (랭킹 등 일반 API에서도 사용)
     READ_SUCCESS("AUTH_S100", "조회에 성공했습니다."),

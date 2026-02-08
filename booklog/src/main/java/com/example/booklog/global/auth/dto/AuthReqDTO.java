@@ -42,4 +42,18 @@ public class AuthReqDTO {
             @NotBlank
             String refreshToken
     ) {}
+
+    // 로그아웃
+    @Schema(name = "AuthLogoutRequest")
+    public record LogoutDTO(
+            @NotBlank(message = "리프레시 토큰을 입력해주세요.")
+            String refreshToken
+    ) {}
+
+    // 회원탈퇴
+    @Schema(name = "AuthDeleteAccountRequest", description = "회원탈퇴 요청")
+    public record DeleteAccountDTO(
+            @Schema(description = "비밀번호 (인앱 로그인 사용자만 필수, 소셜 로그인은 null 또는 빈 문자열 가능)", example = "Test1234!@")
+            String password
+    ) {}
 }
