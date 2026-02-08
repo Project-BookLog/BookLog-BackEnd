@@ -95,6 +95,11 @@ public class AuthCommandServiceImpl implements AuthCommandService {
 
         // 3. 비밀번호 검증 (LOCAL provider인 경우에만)
         if (authAccount.getProvider() == AuthProvider.LOCAL) {
+            // LOCAL 사용자는 비밀번호 필수
+            if (dto.password() == null || dto.password().isBlank()) {
+                throw new AuthException(AuthErrorCode.INVALID_PASSWORD);
+            }
+            // 비밀번호 일치 확인
             if (!passwordEncoder.matches(dto.password(), authAccount.getPassword())) {
                 throw new AuthException(AuthErrorCode.INVALID_PASSWORD);
             }
