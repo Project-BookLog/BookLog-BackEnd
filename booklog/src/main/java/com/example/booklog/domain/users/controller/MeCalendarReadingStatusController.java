@@ -1,4 +1,3 @@
-// controller
 package com.example.booklog.domain.users.controller;
 
 import com.example.booklog.domain.users.dto.CalendarReadingStatusResponse;
@@ -23,7 +22,7 @@ public class MeCalendarReadingStatusController {
 
     private final CalendarReadingStatusService calendarReadingStatusService;
 
-    @Operation(summary = "캘린더 AI 멘트 조회", description = "month=YYYY-MM")
+    @Operation(summary = "캘린더 AI 멘트 및 독서 현황 퍼센트 조회", description = "month=YYYY-MM")
     @GetMapping("/insight")
     public ApiResponse<CalendarReadingStatusResponse> getCalendarReadingStatus(
             @AuthenticationPrincipal CustomUserDetails userDetails,

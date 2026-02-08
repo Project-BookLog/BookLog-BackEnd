@@ -1,7 +1,7 @@
 package com.example.booklog.domain.users.controller;
 
 import com.example.booklog.domain.users.dto.KeyScreenInsightResponse;
-import com.example.booklog.domain.users.service.KeyScreenInsightFacadeService;
+import com.example.booklog.domain.users.service.KeyScreenInsightService;
 import com.example.booklog.global.auth.security.CustomUserDetails;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
 import com.example.booklog.global.common.apiPayload.code.status.SuccessStatus;
@@ -20,16 +20,16 @@ import java.time.YearMonth;
 @RequestMapping("/api/v1/me/key-screen")
 public class MeKeyScreenController {
 
-    private final KeyScreenInsightFacadeService keyScreenInsightFacadeService;
+    private final KeyScreenInsightService keyScreenInsightService;
 
-    @Operation(summary = "키스크린 독서 취향 분석 문구", description = "month=YYYY-MM")
+    @Operation(summary = "키스크린 독서 취향 분석 문구 및 독서 현황 퍼센트", description = "month=YYYY-MM")
     @GetMapping("/insight")
     public ApiResponse<KeyScreenInsightResponse> getKeyScreenInsight(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
         KeyScreenInsightResponse res =
-                keyScreenInsightFacadeService.getKeyScreenInsight(userDetails.getUserId(), month);
+                keyScreenInsightService.getKeyScreenInsight(userDetails.getUserId(), month);
 
         return ApiResponse.onSuccess(SuccessStatus.OK, res);
     }
