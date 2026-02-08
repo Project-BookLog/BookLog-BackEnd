@@ -3,6 +3,7 @@ package com.example.booklog.global.auth.controller;
 import com.example.booklog.global.auth.dto.AuthReqDTO;
 import com.example.booklog.global.auth.dto.AuthResDTO;
 import com.example.booklog.global.auth.exception.AuthSuccessCode;
+import com.example.booklog.global.auth.security.CustomUserDetails;
 import com.example.booklog.global.auth.service.AuthCommandService;
 import com.example.booklog.global.auth.service.AuthQueryService;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
@@ -12,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -70,6 +72,34 @@ public class AuthController {
     public void kakaoLogin(HttpServletResponse response) throws IOException {
         String redirectUrl = serverDomain + "/oauth2/authorization/kakao";
         response.sendRedirect(redirectUrl);
+    }
+
+    // 로그아웃
+    @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "리프레시 토큰을 무효화하여 로그아웃합니다. 인앱 로그인과 소셜 로그인 모두 사용 가능합니다.")
+    public ApiResponse<AuthResDTO.LogoutDTO> logout(
+            @RequestBody @Valid AuthReqDTO.LogoutDTO dto
+    ) {
+        return ApiResponse.onSuccess(
+                AuthSuccessCode.LOGOUT_SUCCESS,
+                authCommandService.logout(dto)
+        );
+    }
+
+    // 회원탈퇴
+    @DeleteMapping("/account")
+    @Operation(
+            summary = "회원탈퇴",
+            description = "사용자 계정을 삭제합니다. 인앱 로그인 사용자는 비밀번호 검증이 필요하며, 소셜 로그인 사용자는 비밀번호 검증 없이 탈퇴가 가능합니다. 모든 사용자 데이터가 영구적으로 삭제됩니다."
+    )
+    public ApiResponse<AuthResDTO.DeleteAccountDTO> deleteAccount(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody @Valid AuthReqDTO.DeleteAccountDTO dto
+    ) {
+        return ApiResponse.onSuccess(
+                AuthSuccessCode.DELETE_ACCOUNT_SUCCESS,
+                authCommandService.deleteAccount(userDetails.getUserId(), dto)
+        );
     }
 
 }

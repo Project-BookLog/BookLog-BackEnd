@@ -101,7 +101,7 @@ public class GlobalExceptionHandler {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case UNAUTHORIZED, TOKEN_EXPIRED, INVALID_TOKEN -> HttpStatus.UNAUTHORIZED;
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
-            case DUPLICATE_EMAIL, INVALID_EMAIL_FORMAT, INVALID -> HttpStatus.BAD_REQUEST;
+            case DUPLICATE_EMAIL, INVALID_EMAIL_FORMAT, INVALID, INVALID_PASSWORD -> HttpStatus.BAD_REQUEST;
         };
     }
 

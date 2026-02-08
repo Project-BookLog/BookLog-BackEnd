@@ -51,4 +51,11 @@ public class AuthConverter {
                 .message("회원가입이 완료되었습니다. 로그인해주세요.")
                 .build();
     }
+
+    // 회원탈퇴 성공 메시지
+    public static AuthResDTO.DeleteAccountDTO toDeleteAccountDTO() {
+        return AuthResDTO.DeleteAccountDTO.builder()
+                .message("회원탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.")
+                .build();
+    }
 }
