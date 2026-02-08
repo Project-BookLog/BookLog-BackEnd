@@ -14,21 +14,25 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.YearMonth;
 
-@Tag(name = "마이페이지 - 키스크린(통합)", description = "키스크린 데이터 통합 조회")
+@Tag(name = "마이페이지 - 키스크린", description = "마이페이지 대시보드(키스크린) 통합 조회")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/me")
-public class MeMyPageController {
+public class MyPageKeyScreenController {
 
     private final MyPageKeyScreenFacadeService facadeService;
 
-    @Operation(summary = "키스크린 통합 조회", description = "month=YYYY-MM (없으면 현재월)")
+    @Operation(summary = "마이페이지 키스크린(대시보드) 통합 조회", description = "month=YYYY-MM (없으면 이번 달)")
     @GetMapping("/mypage")
     public ApiResponse<MyPageKeyScreenResponse> getMyPage(
-            @AuthenticationPrincipal CustomUserDetails me,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
-        MyPageKeyScreenResponse res = facadeService.getMyPage(me.getUserId(), month);
-        return ApiResponse.onSuccess(SuccessStatus.OK, res);
+        Long userId = userDetails.getUserId();
+        String email = userDetails.getUsername();
+
+        return ApiResponse.onSuccess(SuccessStatus.OK,
+                facadeService.getMyPage(userId, email, month)
+        );
     }
 }
