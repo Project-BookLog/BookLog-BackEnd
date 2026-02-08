@@ -11,7 +11,7 @@ public record MyPageKeyScreenResponse(
 ) {
     public static MyPageKeyScreenResponse of(
             YearMonth month,
-            MeProfileResponse profile,
+            MeProfileWithStatsResponse profile,
             KeyScreenInsightResponse readingStatus,
             FriendReadingRankingTop3Response top3,
             ReadingCalendarResponse calendar
@@ -29,16 +29,28 @@ public record MyPageKeyScreenResponse(
             String nickname,
             String avatarUrl,
             boolean isShelfPublic,
-            boolean isBooklogPublic
-            // + 만약 키스크린에서 counts 필요하면 여기 확장:
-            // long followerCount, long followingCount, long completedCount, long booklogCount, long bookmarkCount
+            boolean isBooklogPublic,
+
+            String email,
+            long followerCount,
+            long followingCount,
+            long completedBookCount,
+            long myBooklogCount,
+            long bookmarkCount
     ) {
-        public static ProfileSummary from(MeProfileResponse p) {
+        public static ProfileSummary from(MeProfileWithStatsResponse p) {
             return new ProfileSummary(
                     p.nickname(),
-                    p.profileImageUrl(),
+                    p.avatarUrl(),
                     p.isShelfPublic(),
-                    p.isBooklogPublic()
+                    p.isBooklogPublic(),
+
+                    p.email(),
+                    p.followerCount(),
+                    p.followingCount(),
+                    p.completedBookCount(),
+                    p.myBooklogCount(),
+                    p.bookmarkCount()
             );
         }
     }
