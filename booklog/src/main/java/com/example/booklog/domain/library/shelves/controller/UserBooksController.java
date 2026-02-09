@@ -145,6 +145,26 @@ public class UserBooksController {
     }
 
     @Operation(
+            summary = "홈 - 지금 읽고 있는 책 조회",
+            description = """
+                홈 화면의 '지금 읽고 있는 책' 섹션용 API입니다.
+                - 인증: Access Token(Bearer)
+                - Query:
+                  - limit: 선택(기본 10, 최대 20)
+                - 응답:
+                  - count: 읽는 중 총 개수
+                  - items: 카드 리스트(제목/저자/출판사/썸네일/진행률 포함)
+                """
+    )
+    @GetMapping("/reading-books")
+    public CurrentReadingResponse currentReading(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit
+    ) {
+        return userBooksService.currentReading(userDetails.getUserId(), limit);
+    }
+
+    @Operation(
             summary = "도서 총 페이지 입력",
             description = """
                 사용자가 직접 입력하는 총 페이지 수(pageCountSnapshot)를 저장합니다.
