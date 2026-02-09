@@ -34,7 +34,8 @@ public class BookSearchConverter {
                 saved.getIsbn13(),
                 authors,
                 translators,
-                saved.getPublishedDate()
+                saved.getPublishedDate(),
+                Collections.emptyList() // tags는 나중에 별도 로직으로 조회
         );
     }
 }

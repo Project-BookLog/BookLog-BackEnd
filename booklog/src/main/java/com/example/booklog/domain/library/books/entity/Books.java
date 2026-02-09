@@ -38,9 +38,41 @@ public class Books extends BaseEntity {
     /**
      * 너는 "description"이라는 도메인 이름을 쓰고 싶음.
      * ERD: contents
+     * 요구사항 #2: TEXT 타입으로 충분한 길이 보장
      */
-    @Column(name = "contents", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "contents", columnDefinition = "LONGTEXT")
     private String description;
+
+    /**
+     * 책 간략 소개 (한 문장 수준)
+     * 예: "상실, 사랑 그리고 숨어 있는 삶의 질서에 관한 이야기"
+     */
+    @Column(name = "short_intro", columnDefinition = "TEXT")
+    private String shortIntro;
+
+    /**
+     * AI 취향 코멘트 (JSON 형태)
+     * 구조: {"title": "...", "description": "..."}
+     */
+    @Lob
+    @Column(name = "ai_taste_comment", columnDefinition = "TEXT")
+    private String aiTasteComment;
+
+    /**
+     * 상세 취향 분석 (JSON 형태)
+     * 구조: {"mood": {...}, "style": {...}, "immersion": {...}}
+     */
+    @Lob
+    @Column(name = "taste_analysis", columnDefinition = "TEXT")
+    private String tasteAnalysis;
+
+    /**
+     * 목차 정보 (JSON 배열 또는 텍스트)
+     */
+    @Lob
+    @Column(name = "table_of_contents", columnDefinition = "TEXT")
+    private String tableOfContents;
 
     /**
      * 너는 "detailUrl"을 쓰고 싶음.
@@ -110,7 +142,9 @@ public class Books extends BaseEntity {
     public Books(String title, String description, String detailUrl,
                  String isbn, String isbn10, String isbn13,
                  LocalDate publishedDate, String thumbnailUrl,
-                 String publisherName, BookSource source, String rawData) {
+                 String publisherName, BookSource source, String rawData,
+                 String shortIntro, String aiTasteComment, String tasteAnalysis,
+                 String tableOfContents) {
         this.title = title;
         this.description = description;
         this.detailUrl = detailUrl;
@@ -123,6 +157,10 @@ public class Books extends BaseEntity {
         this.source = (source != null) ? source : BookSource.KAKAO;
         this.rawData = rawData;
         this.lastSyncedAt = LocalDateTime.now();
+        this.shortIntro = shortIntro;
+        this.aiTasteComment = aiTasteComment;
+        this.tasteAnalysis = tasteAnalysis;
+        this.tableOfContents = tableOfContents;
     }
 
     /** 업데이트 시도 동일 (필드명은 네 스타일 유지) */
@@ -139,6 +177,16 @@ public class Books extends BaseEntity {
         this.isbn10 = isbn10;
         this.isbn13 = isbn13;
         this.rawData = rawData;
+        this.lastSyncedAt = LocalDateTime.now();
+    }
+
+    /** 추가 정보 업데이트 (AI 분석 등) */
+    public void updateEnrichedInfo(String shortIntro, String aiTasteComment,
+                                   String tasteAnalysis, String tableOfContents) {
+        if (shortIntro != null) this.shortIntro = shortIntro;
+        if (aiTasteComment != null) this.aiTasteComment = aiTasteComment;
+        if (tasteAnalysis != null) this.tasteAnalysis = tasteAnalysis;
+        if (tableOfContents != null) this.tableOfContents = tableOfContents;
         this.lastSyncedAt = LocalDateTime.now();
     }
 

@@ -6,6 +6,8 @@ import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.library.books.service.BookImportService;
 import com.example.booklog.domain.search.dto.BookSortType;
+import com.example.booklog.domain.tags.mapping.BookTags;
+import com.example.booklog.domain.tags.repository.BookTagsRepository;
 import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
 import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ public class BookSearchService {
 
     private final BookImportService bookImportService;
     private final BooksRepository booksRepository;
+    private final BookTagsRepository bookTagsRepository;
 
     /**
      * 도서 검색 (정렬 기능 지원)
@@ -152,6 +155,12 @@ public class BookSearchService {
                 .map(ba -> ba.getAuthor().getName())
                 .toList();
 
+        // 태그 추출 (분위기/문체/몰입도)
+        List<String> tags = bookTagsRepository.findAllByBookId(book.getId()).stream()
+                .map(BookTags::getTag)
+                .map(tag -> "#" + tag.getName()) // 태그명 앞에 # 추가
+                .toList();
+
         return new BookSearchItemResponse(
                 book.getId(),
                 book.getTitle(),
@@ -160,7 +169,8 @@ public class BookSearchService {
                 book.getIsbn13(),
                 authors,
                 translators,
-                book.getPublishedDate()
+                book.getPublishedDate(),
+                tags
         );
     }
 
