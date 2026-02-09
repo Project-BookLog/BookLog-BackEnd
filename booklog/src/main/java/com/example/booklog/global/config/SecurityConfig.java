@@ -45,6 +45,7 @@ public class SecurityConfig {
             "/",
             "/health",
             "/api/v1/auth/**",
+            "/api/v1/books/**",  // 책 조회 API (공개)
             "/swagger-ui/**",
             "/swagger-resources/**",
             "/v3/api-docs/**",
