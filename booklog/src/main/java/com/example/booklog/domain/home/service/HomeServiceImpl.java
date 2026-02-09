@@ -1,6 +1,8 @@
 package com.example.booklog.domain.home.service;
 
 import com.example.booklog.domain.home.dto.*;
+import com.example.booklog.domain.library.books.entity.Books;
+import com.example.booklog.domain.library.books.repository.BooksRepository;
 import com.example.booklog.domain.tags.entity.TagCategory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -11,38 +13,29 @@ import java.util.stream.Collectors;
 /**
  * 홈 화면 데이터 제공 서비스 구현체 (PM 하드코딩 랭킹표 기반)
  *
- * 요구사항 반영:
- * 1) 베스트셀러(태그 섹션) BookSummary.ranking 필수 (null 금지)  -> 1~9 부여
- * 2) 베스트셀러는 태그당 9권 (ranking 1~9)
- * 3) 몰입도 태그명: "기분 전환", "지적인 탐구", "압도적 몰입", "짙은 여운"
- * 4) TagCategory enum 활용 (MOOD/STYLE/IMMERSION)
+ * A안: title 기반으로 DB books 조회해서 "진짜 bookId(DB PK)" 매핑 후 응답
  *
- * 현재 제약:
- * - DB 태그-책 매핑이 없어 전부 하드코딩 목록으로 구성
- * - DB 메타데이터(저자/출판사/표지)는 있으면 조회, 없으면 null fallback
+ * 주의:
+ * - title이 중복되는 경우가 존재함 (어린 왕자/데미안 등)
+ * - 이 구현은 "같은 title 여러 권이면 1권을 대표로 선택"하는 정책을 포함함
  */
 @Service
 @RequiredArgsConstructor
 public class HomeServiceImpl implements HomeService {
 
     private final BookMetadataService bookMetadataService;
+    private final BooksRepository booksRepository;
 
     /* =========================
-     * PM 하드코딩 데이터셋
+     * PM 하드코딩 데이터셋 (title)
      * ========================= */
 
-    /** 실시간 랭킹 TOP3 (PM 제공) */
     private static final List<String> REALTIME_TOP3 = List.of(
             "트렌드 코리아 2026",
             "비가 오면 열리는 상점",
             "이중 하나는 거짓말"
     );
 
-    /**
-     * 태그별 랭킹표 (각 태그당 9권)
-     * - key: TagCategory
-     * - value: (tagName -> 9권 제목 리스트)
-     */
     private static final Map<TagCategory, Map<String, List<String>>> TAG_RANKINGS = Map.of(
             TagCategory.MOOD, Map.of(
                     "따뜻한", List.of(
@@ -112,7 +105,6 @@ public class HomeServiceImpl implements HomeService {
                             "정오에서 가장 먼 시간"
                     )
             ),
-
             TagCategory.STYLE, Map.of(
                     "간결한", List.of(
                             "트렌드 코리아 2026",
@@ -181,7 +173,6 @@ public class HomeServiceImpl implements HomeService {
                             "파친코"
                     )
             ),
-
             TagCategory.IMMERSION, Map.of(
                     "기분 전환", List.of(
                             "트렌드 코리아 2026",
@@ -230,70 +221,129 @@ public class HomeServiceImpl implements HomeService {
             )
     );
 
-    /**
-     * 제목 -> 임시 bookId 매핑
-     * - 실시간 + 태그랭킹에 등장하는 모든 책 제목을 자동 수집하여 1..N 부여
-     */
-    private static final Map<String, Long> BOOK_ID_MAPPING = initializeBookIdMapping();
-
-    private static Map<String, Long> initializeBookIdMapping() {
-        Set<String> titles = new LinkedHashSet<>();
-
-        titles.addAll(REALTIME_TOP3);
-        TAG_RANKINGS.values().forEach(tagMap ->
-                tagMap.values().forEach(titles::addAll)
-        );
-
-        Map<String, Long> mapping = new LinkedHashMap<>();
-        long id = 1L;
-        for (String t : titles) {
-            mapping.put(t, id++);
-        }
-        return Collections.unmodifiableMap(mapping);
-    }
-
     /* =========================
      * Main
      * ========================= */
 
     @Override
     public HomeResponse getHomeData() {
-        // 1) 홈에서 필요한 모든 책 제목 수집 -> 메타데이터 일괄 조회
-        List<BookMetadataService.BookInfo> allInfos = collectAllBookInfos();
+        // 1) 홈에서 필요한 모든 title 수집
+        Set<String> titles = collectAllTitles();
+
+        // 2) DB에서 title IN 조회 (fetch join 포함)
+        List<Books> found = booksRepository.findAllByTitleIn(new ArrayList<>(titles));
+
+        // 3) title -> DB bookId 매핑 (중복 title은 대표 1권 선택)
+        Map<String, Long> titleToBookId = pickRepresentativeBookIdByTitle(found);
+
+        // 4) 메타조회용 BookInfo 구성 (bookId는 DB PK)
+        List<BookMetadataService.BookInfo> allInfos = collectAllBookInfos(titleToBookId);
+
+        // 5) 메타 붙이기
         List<BookSummary> allBooks = bookMetadataService.getBookSummaries(allInfos);
 
-        // 2) title -> BookSummary 맵
+        // 6) title -> BookSummary 맵 (동일 title 중복 가능하지만 홈은 1권만 쓴다는 전제)
         Map<String, BookSummary> bookMap = allBooks.stream()
                 .collect(Collectors.toMap(BookSummary::title, b -> b, (a, b) -> a));
 
         return new HomeResponse(
-                buildRealTimeRanking(bookMap),
-                buildBestsellersByCategory(bookMap, TagCategory.MOOD),
-                buildBestsellersByCategory(bookMap, TagCategory.STYLE),
-                buildBestsellersByCategory(bookMap, TagCategory.IMMERSION)
+                buildRealTimeRanking(bookMap, titleToBookId),
+                buildBestsellersByCategory(bookMap, titleToBookId, TagCategory.MOOD),
+                buildBestsellersByCategory(bookMap, titleToBookId, TagCategory.STYLE),
+                buildBestsellersByCategory(bookMap, titleToBookId, TagCategory.IMMERSION)
         );
     }
 
     /* =========================
-     * Collect all book infos
+     * Collect titles
      * ========================= */
 
-    private List<BookMetadataService.BookInfo> collectAllBookInfos() {
+    private Set<String> collectAllTitles() {
+        Set<String> titles = new LinkedHashSet<>();
+        titles.addAll(REALTIME_TOP3);
+        TAG_RANKINGS.values().forEach(tagMap ->
+                tagMap.values().forEach(titles::addAll)
+        );
+        return titles;
+    }
+
+    /**
+     * title이 중복되는 경우 "대표 1권"을 선택하는 정책이 필요함.
+     *
+     * 현재 정책:
+     * - publishedDate가 더 최신인 책 우선
+     * - publishedDate가 같거나 null이면 id가 큰 책 우선
+     */
+    private Map<String, Long> pickRepresentativeBookIdByTitle(List<Books> found) {
+        Map<String, Books> best = new HashMap<>();
+
+        for (Books b : found) {
+            String title = b.getTitle();
+            Books cur = best.get(title);
+
+            if (cur == null) {
+                best.put(title, b);
+                continue;
+            }
+
+            if (isBetterRepresentative(b, cur)) {
+                best.put(title, b);
+            }
+        }
+
+        return best.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().getId()
+                ));
+    }
+
+    private boolean isBetterRepresentative(Books candidate, Books current) {
+        // 1) publishedDate 비교 (null은 가장 뒤로)
+        if (candidate.getPublishedDate() != null && current.getPublishedDate() == null) return true;
+        if (candidate.getPublishedDate() == null && current.getPublishedDate() != null) return false;
+
+        if (candidate.getPublishedDate() != null && current.getPublishedDate() != null) {
+            int cmp = candidate.getPublishedDate().compareTo(current.getPublishedDate());
+            if (cmp != 0) return cmp > 0; // 최신 우선
+        }
+
+        // 2) id 큰 것 우선
+        return candidate.getId() != null && current.getId() != null
+                && candidate.getId() > current.getId();
+    }
+
+    /* =========================
+     * BookInfo
+     * ========================= */
+
+    private List<BookMetadataService.BookInfo> collectAllBookInfos(Map<String, Long> titleToBookId) {
         List<BookMetadataService.BookInfo> result = new ArrayList<>();
 
         // 실시간 TOP3는 ranking 포함
         for (int i = 0; i < REALTIME_TOP3.size(); i++) {
-            addBookInfo(result, REALTIME_TOP3.get(i), i + 1);
+            String title = REALTIME_TOP3.get(i);
+            int rank = i + 1;
+
+            Long bookId = titleToBookId.get(title);
+            if (bookId != null) {
+                result.add(new BookMetadataService.BookInfo(bookId, title, rank));
+            }
         }
 
-        // 태그 랭킹에 등장하는 모든 책은 ranking 없이(메타 조회용)
+        // 태그 랭킹은 ranking 없이(메타 조회용)
         TAG_RANKINGS.values().forEach(tagMap ->
                 tagMap.values().forEach(list ->
-                        list.forEach(t -> addBookInfo(result, t, null))
+                        list.forEach(title -> {
+                            Long bookId = titleToBookId.get(title);
+                            if (bookId != null) {
+                                result.add(new BookMetadataService.BookInfo(bookId, title, null));
+                            }
+                        })
                 )
         );
 
-        // 중복 제거: bookId 기준 유니크
+        // 중복 제거: bookId 기준
         return result.stream()
                 .collect(Collectors.toMap(
                         BookMetadataService.BookInfo::bookId,
@@ -306,56 +356,54 @@ public class HomeServiceImpl implements HomeService {
                 .toList();
     }
 
-    private void addBookInfo(List<BookMetadataService.BookInfo> list, String title, Integer ranking) {
-        Long bookId = BOOK_ID_MAPPING.get(title);
-        if (bookId != null) {
-            list.add(new BookMetadataService.BookInfo(bookId, title, ranking));
-        }
-    }
-
     /* =========================
      * Sections
      * ========================= */
 
-    private RealTimeRankingSection buildRealTimeRanking(Map<String, BookSummary> bookMap) {
+    private RealTimeRankingSection buildRealTimeRanking(
+            Map<String, BookSummary> bookMap,
+            Map<String, Long> titleToBookId
+    ) {
         List<BookSummary> rankings = new ArrayList<>();
 
         for (int i = 0; i < REALTIME_TOP3.size(); i++) {
             String title = REALTIME_TOP3.get(i);
             int rank = i + 1;
 
-            BookSummary b = bookMap.getOrDefault(
-                    title,
-                    createFallback(BOOK_ID_MAPPING.getOrDefault(title, 0L), title, rank)
-            );
-
-            rankings.add(new BookSummary(
-                    b.bookId(),
-                    b.title(),
-                    b.author(),
-                    b.publisher(),
-                    b.coverImageUrl(),
-                    rank
-            ));
+            BookSummary b = bookMap.get(title);
+            if (b != null) {
+                rankings.add(new BookSummary(
+                        b.bookId(),
+                        b.title(),
+                        b.author(),
+                        b.publisher(),
+                        b.coverImageUrl(),
+                        rank
+                ));
+            } else {
+                Long bookId = titleToBookId.getOrDefault(title, 0L);
+                rankings.add(createFallback(bookId, title, rank));
+            }
         }
 
         return new RealTimeRankingSection("2030 인기 도서 TOP 3", rankings);
     }
 
-    private List<TaggedBooksSection> buildBestsellersByCategory(Map<String, BookSummary> bookMap, TagCategory category) {
-        Map<String, List<String>> tagMap = TAG_RANKINGS.get(category);
+    private List<TaggedBooksSection> buildBestsellersByCategory(
+            Map<String, BookSummary> bookMap,
+            Map<String, Long> titleToBookId,
+            TagCategory category
+    ) {
+        Map<String, List<String>> tagMap = TAG_RANKINGS.getOrDefault(category, Map.of());
 
         return tagMap.entrySet().stream()
-                .map(e -> createTagSection(bookMap, e.getKey(), e.getValue()))
+                .map(e -> createTagSection(bookMap, titleToBookId, e.getKey(), e.getValue()))
                 .toList();
     }
 
-    /**
-     * ✅ 태그 섹션: ranking 필수 (1~9)
-     * ✅ 태그당 9권
-     */
     private TaggedBooksSection createTagSection(
             Map<String, BookSummary> bookMap,
+            Map<String, Long> titleToBookId,
             String tagName,
             List<String> bookTitles
     ) {
@@ -376,12 +424,12 @@ public class HomeServiceImpl implements HomeService {
                         ranking
                 ));
             } else {
-                Long bookId = BOOK_ID_MAPPING.getOrDefault(title, 0L);
+                Long bookId = titleToBookId.getOrDefault(title, 0L);
                 books.add(createFallback(bookId, title, ranking));
             }
         }
 
-        // 안전장치: 혹시 9개 미만/초과이면 정규화
+        // 9개 정규화
         while (books.size() < 9) {
             int ranking = books.size() + 1;
             books.add(createFallback(0L, "미정", ranking));
