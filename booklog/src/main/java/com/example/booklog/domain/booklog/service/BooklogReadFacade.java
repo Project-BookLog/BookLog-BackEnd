@@ -30,4 +30,5 @@ public interface BooklogReadFacade {
     BooklogRecommendationResponse buildRecommendations(Long postId);
     void validateCreateRequest(Long userId, Long bookId);
     BooklogFeedResponse assembleFeedCards(Long viewerId, Slice<BooklogPost> slice);
+    Slice<BooklogPost> findBookPostsSlice(Long bookId, Pageable pageable);
 }

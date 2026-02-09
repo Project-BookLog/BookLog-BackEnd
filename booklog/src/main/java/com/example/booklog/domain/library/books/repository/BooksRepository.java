@@ -111,6 +111,20 @@ public interface BooksRepository extends JpaRepository<Books, Long> {
         """)
     @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
     Page<Books> searchByTitleOrAuthor(@Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * 책 ID로 상세정보 조회 (저자 정보 포함)
+     * Fetch Join으로 BookAuthors와 Authors를 함께 조회하여 N+1 문제 방지
+     *
+     * @param bookId 책 ID
+     * @return 책 엔티티 (저자 정보 포함)
+     */
+    @Query("SELECT DISTINCT b FROM Books b " +
+           "LEFT JOIN FETCH b.bookAuthors ba " +
+           "LEFT JOIN FETCH ba.author a " +
+           "WHERE b.id = :bookId")
+    @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
+    Optional<Books> findByIdWithAuthors(@Param("bookId") Long bookId);
 }
 
 

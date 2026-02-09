@@ -3,6 +3,7 @@ package com.example.booklog.domain.library.shelves.repository;
 import com.example.booklog.domain.library.shelves.dto.UserBookListItemResponse;
 import com.example.booklog.domain.library.shelves.entity.ReadingStatus;
 import com.example.booklog.domain.library.shelves.entity.UserBooks;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
@@ -169,5 +170,34 @@ public interface UserBooksRepository extends JpaRepository<UserBooks, Long> {
     List<Long> findBookIdsByUserIdAndShelfIdAndStatus(@Param("userId") Long userId,
                                                       @Param("shelfId") Long shelfId,
                                                       @Param("status") ReadingStatus status);
+
+    @Query("""
+select new com.example.booklog.domain.library.shelves.dto.UserBookListItemResponse(
+    ub.id,
+    ub.status,
+    ub.progressPercent,
+    ub.currentPage,
+
+    b.id,
+    b.title,
+    b.thumbnailUrl,
+    b.publisherName,
+
+    a.name
+)
+from UserBooks ub
+join ub.book b
+left join b.bookAuthors ba
+    on ba.role = com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR
+    and ba.displayOrder = 1
+left join ba.author a
+where ub.user.id = :userId
+  and ub.status = com.example.booklog.domain.library.shelves.entity.ReadingStatus.READING
+order by ub.updatedAt desc
+""")
+    List<UserBookListItemResponse> listCurrentReading(
+            @Param("userId") Long userId,
+            Pageable pageable
+    );
 
 }
