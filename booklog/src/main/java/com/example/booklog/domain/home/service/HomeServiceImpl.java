@@ -1,132 +1,309 @@
 package com.example.booklog.domain.home.service;
 
 import com.example.booklog.domain.home.dto.*;
+import com.example.booklog.domain.tags.entity.TagCategory;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 홈 화면 데이터 제공 서비스 구현체
+ * 홈 화면 데이터 제공 서비스 구현체 (PM 하드코딩 랭킹표 기반)
  *
- * PM 제공 데이터 기반으로 구성
+ * 요구사항 반영:
+ * 1) 베스트셀러(태그 섹션) BookSummary.ranking 필수 (null 금지)  -> 1~9 부여
+ * 2) 베스트셀러는 태그당 9권 (ranking 1~9)
+ * 3) 몰입도 태그명: "기분 전환", "지적인 탐구", "압도적 몰입", "짙은 여운"
+ * 4) TagCategory enum 활용 (MOOD/STYLE/IMMERSION)
  *
- * [현재 구현 방식]
- * - 하드코딩된 20개 도서 목록 반환
- * - DB에서 메타데이터 조회 (저자, 출판사, 이미지)
- * - DB에 데이터 없으면 null로 반환
- *
- * [추후 개선 예정]
- * - Redis 캐싱
- * - 카카오 API 비동기 호출
+ * 현재 제약:
+ * - DB 태그-책 매핑이 없어 전부 하드코딩 목록으로 구성
+ * - DB 메타데이터(저자/출판사/표지)는 있으면 조회, 없으면 null fallback
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HomeServiceImpl implements HomeService {
 
     private final BookMetadataService bookMetadataService;
 
-    // PM 제공 데이터 기반 도서명 → bookId 매핑
-    // 실제 운영 시에는 DB에서 title로 조회하여 bookId를 가져와야 함
-    private static final Map<String, Long> BOOK_ID_MAPPING = initializeBookIdMapping();
+    /* =========================
+     * PM 하드코딩 데이터셋
+     * ========================= */
 
-    /**
-     * 도서명 → bookId 매핑 초기화
-     *
-     * 실제 시스템에서는:
-     * 1. DB Book 테이블에 title을 unique 제약조건으로 관리하거나
-     * 2. 별도 매핑 테이블을 운영하거나
-     * 3. 시드 데이터 적재 시 고정 ID를 할당하는 전략 필요
-     */
-    private static Map<String, Long> initializeBookIdMapping() {
-        Map<String, Long> mapping = new HashMap<>();
-        long id = 1L;
-
-        // PM 제공 데이터의 모든 도서명을 순서대로 ID 할당
-        String[] bookTitles = {
+    /** 실시간 랭킹 TOP3 (PM 제공) */
+    private static final List<String> REALTIME_TOP3 = List.of(
             "트렌드 코리아 2026",
             "비가 오면 열리는 상점",
-            "이중 하나는 거짓말",
-            "모순",
-            "메리골드 마음 세탁소",
-            "시대예보: 핵개인의 시대",
-            "마흔에 읽는 쇼펜하우어",
-            "불편한 편의점",
-            "돈의 속성 (300쇄 리미티드)",
-            "채식주의자",
-            "나의 서투른 위로가 너에게 닿기를",
-            "달러구트 꿈 백화점",
-            "모든 삶은 기록을 남긴다",
-            "데미안",
-            "기분이 태도가 되지 않게",
-            "작별인사",
-            "당신도 느리게 재생할 수 있습니다",
-            "1cm 다이빙",
-            "초격차",
-            "물고기는 존재하지 않는다"
-        };
+            "이중 하나는 거짓말"
+    );
 
-        for (String title : bookTitles) {
-            mapping.put(title, id++);
+    /**
+     * 태그별 랭킹표 (각 태그당 9권)
+     * - key: TagCategory
+     * - value: (tagName -> 9권 제목 리스트)
+     */
+    private static final Map<TagCategory, Map<String, List<String>>> TAG_RANKINGS = Map.of(
+            TagCategory.MOOD, Map.of(
+                    "따뜻한", List.of(
+                            "불편한 편의점",
+                            "메리골드 마음 세탁소",
+                            "어서 오세요, 휴남동 서점입니다",
+                            "나의 서투른 위로가 너에게 닿기를",
+                            "세상의 마지막 우체국",
+                            "밝은 밤",
+                            "보노보노처럼 살다니 다행이야",
+                            "곰돌이 푸, 행복한 일은 매일 있어",
+                            "당신의 인생이 왜 힘들지 않아야 한다고 생각하십니까"
+                    ),
+                    "잔잔한", List.of(
+                            "모순",
+                            "마흔에 읽는 쇼펜하우어",
+                            "기분이 태도가 되지 않게",
+                            "보통의 존재",
+                            "언어의 온도",
+                            "모든 삶은 기록을 남긴다",
+                            "당신도 느리게 나이 들 수 있습니다",
+                            "혼자 있는 시간의 힘",
+                            "무례한 사람에게 웃으며 대처하는 법"
+                    ),
+                    "유쾌한", List.of(
+                            "1cm 다이빙",
+                            "하마터면 열심히 살 뻔했다",
+                            "보건교사 안은영",
+                            "일의 기쁨과 슬픔",
+                            "지구에서 한아뿐",
+                            "죽고 싶지만 떡볶이는 먹고 싶어",
+                            "세이노의 가르침",
+                            "돈의 속성",
+                            "역행자"
+                    ),
+                    "어두운", List.of(
+                            "채식주의자",
+                            "소년이 온다",
+                            "인간 실격",
+                            "7년의 밤",
+                            "28",
+                            "눈먼 자들의 도시",
+                            "구의 증명",
+                            "지극히 사적인 초능력",
+                            "소문의 벽"
+                    ),
+                    "서늘한", List.of(
+                            "이중 하나는 거짓말",
+                            "종의 기원",
+                            "완전한 행복",
+                            "당신이 누군가를 죽였다",
+                            "방주",
+                            "하우스메이드",
+                            "그리고 아무도 없었다",
+                            "진이, 지니",
+                            "타인의 해석"
+                    ),
+                    "몽환적인", List.of(
+                            "비가 오면 열리는 상점",
+                            "달러구트 꿈 백화점",
+                            "미드나잇 라이브러리",
+                            "연금술사",
+                            "어린왕자",
+                            "작별인사",
+                            "거울 속의 외딴 성",
+                            "물고기는 존재하지 않는다",
+                            "정오에서 가장 먼 시간"
+                    )
+            ),
+
+            TagCategory.STYLE, Map.of(
+                    "간결한", List.of(
+                            "트렌드 코리아 2026",
+                            "시대예보: 핵개인의 시대",
+                            "마흔에 읽는 쇼펜하우어",
+                            "돈의 속성",
+                            "초격차",
+                            "킵고잉",
+                            "타이탄의 도구들",
+                            "원씽",
+                            "아토믹 해빗"
+                    ),
+                    "화려한", List.of(
+                            "달러구트 꿈 백화점",
+                            "물고기는 존재하지 않는다",
+                            "위대한 개츠비",
+                            "연금술사",
+                            "향수",
+                            "파친코",
+                            "미드나잇 라이브러리",
+                            "모모",
+                            "오만과 편견"
+                    ),
+                    "담백한", List.of(
+                            "모순",
+                            "어서 오세요, 휴남동 서점입니다",
+                            "보통의 존재",
+                            "언어의 온도",
+                            "불편한 편의점",
+                            "1cm 다이빙",
+                            "하마터면 열심히 살 뻔했다",
+                            "퇴사는 여행",
+                            "태도의 말들"
+                    ),
+                    "섬세한", List.of(
+                            "비가 오면 열리는 상점",
+                            "이중 하나는 거짓말",
+                            "메리골드 마음 세탁소",
+                            "소년이 온다",
+                            "밝은 밤",
+                            "작별인사",
+                            "데미안",
+                            "각각의 계절",
+                            "정오에서 가장 먼 시간"
+                    ),
+                    "직설적", List.of(
+                            "세이노의 가르침",
+                            "역행자",
+                            "돈의 속성",
+                            "부의 추월차선",
+                            "타이탄의 도구들",
+                            "킵고잉",
+                            "넛지",
+                            "스틱!",
+                            "그릿"
+                    ),
+                    "은유적", List.of(
+                            "채식주의자",
+                            "소년이 온다",
+                            "어린왕자",
+                            "연금술사",
+                            "데미안",
+                            "작별인사",
+                            "구의 증명",
+                            "이토록 평범한 미래",
+                            "파친코"
+                    )
+            ),
+
+            TagCategory.IMMERSION, Map.of(
+                    "기분 전환", List.of(
+                            "트렌드 코리아 2026",
+                            "돈의 속성",
+                            "나의 서투른 위로가 너에게 닿기를",
+                            "1cm 다이빙",
+                            "기분이 태도가 되지 않게",
+                            "모든 삶은 기록을 남긴다",
+                            "킵고잉",
+                            "타이탄의 도구들",
+                            "부의 추월차선"
+                    ),
+                    "지적인 탐구", List.of(
+                            "모순",
+                            "시대예보: 핵개인의 시대",
+                            "마흔에 읽는 쇼펜하우어",
+                            "채식주의자",
+                            "소년이 온다",
+                            "초격차",
+                            "사피엔스",
+                            "정의란 무엇인가",
+                            "총 균 쇠"
+                    ),
+                    "압도적 몰입", List.of(
+                            "비가 오면 열리는 상점",
+                            "메리골드 마음 세탁소",
+                            "불편한 편의점",
+                            "달러구트 꿈 백화점",
+                            "파친코",
+                            "향수",
+                            "위대한 개츠비",
+                            "미드나잇 라이브러리",
+                            "모모"
+                    ),
+                    "짙은 여운", List.of(
+                            "이중 하나는 거짓말",
+                            "작별인사",
+                            "물고기는 존재하지 않는다",
+                            "데미안",
+                            "어린왕자",
+                            "연금술사",
+                            "소년이 온다",
+                            "서늘한 여름밤",
+                            "세상의 마지막 우체국"
+                    )
+            )
+    );
+
+    /**
+     * 제목 -> 임시 bookId 매핑
+     * - 실시간 + 태그랭킹에 등장하는 모든 책 제목을 자동 수집하여 1..N 부여
+     */
+    private static final Map<String, Long> BOOK_ID_MAPPING = initializeBookIdMapping();
+
+    private static Map<String, Long> initializeBookIdMapping() {
+        Set<String> titles = new LinkedHashSet<>();
+
+        titles.addAll(REALTIME_TOP3);
+        TAG_RANKINGS.values().forEach(tagMap ->
+                tagMap.values().forEach(titles::addAll)
+        );
+
+        Map<String, Long> mapping = new LinkedHashMap<>();
+        long id = 1L;
+        for (String t : titles) {
+            mapping.put(t, id++);
         }
-
         return Collections.unmodifiableMap(mapping);
     }
 
+    /* =========================
+     * Main
+     * ========================= */
+
     @Override
     public HomeResponse getHomeData() {
-        log.info("홈 화면 데이터 조회 시작");
+        // 1) 홈에서 필요한 모든 책 제목 수집 -> 메타데이터 일괄 조회
+        List<BookMetadataService.BookInfo> allInfos = collectAllBookInfos();
+        List<BookSummary> allBooks = bookMetadataService.getBookSummaries(allInfos);
 
-        // 1. 모든 도서 정보 수집
-        List<BookMetadataService.BookInfo> allBookInfos = collectAllBookInfos();
-
-        // 2. 일괄 조회 (DB 쿼리 최적화) - INSERT 없이 조회만 수행
-        List<BookSummary> allBooks = bookMetadataService.getBookSummaries(allBookInfos);
-
-        // 3. title을 key로 하는 Map 생성
+        // 2) title -> BookSummary 맵
         Map<String, BookSummary> bookMap = allBooks.stream()
                 .collect(Collectors.toMap(BookSummary::title, b -> b, (a, b) -> a));
 
         return new HomeResponse(
                 buildRealTimeRanking(bookMap),
-                buildMoodBestsellers(bookMap),
-                buildWritingStyleBestsellers(bookMap),
-                buildImmersionBestsellers(bookMap)
+                buildBestsellersByCategory(bookMap, TagCategory.MOOD),
+                buildBestsellersByCategory(bookMap, TagCategory.STYLE),
+                buildBestsellersByCategory(bookMap, TagCategory.IMMERSION)
         );
     }
 
-    /**
-     * 모든 섹션의 도서 정보 수집
-     */
+    /* =========================
+     * Collect all book infos
+     * ========================= */
+
     private List<BookMetadataService.BookInfo> collectAllBookInfos() {
         List<BookMetadataService.BookInfo> result = new ArrayList<>();
 
-        // 실시간 랭킹 (1-20위)
-        addBookInfo(result, "트렌드 코리아 2026", 1);
-        addBookInfo(result, "비가 오면 열리는 상점", 2);
-        addBookInfo(result, "이중 하나는 거짓말", 3);
-        addBookInfo(result, "모순", 4);
-        addBookInfo(result, "메리골드 마음 세탁소", 5);
-        addBookInfo(result, "시대예보: 핵개인의 시대", 6);
-        addBookInfo(result, "마흔에 읽는 쇼펜하우어", 7);
-        addBookInfo(result, "불편한 편의점", 8);
-        addBookInfo(result, "돈의 속성 (300쇄 리미티드)", 9);
-        addBookInfo(result, "채식주의자", 10);
-        addBookInfo(result, "나의 서투른 위로가 너에게 닿기를", 11);
-        addBookInfo(result, "달러구트 꿈 백화점", 12);
-        addBookInfo(result, "모든 삶은 기록을 남긴다", 13);
-        addBookInfo(result, "데미안", 14);
-        addBookInfo(result, "기분이 태도가 되지 않게", 15);
-        addBookInfo(result, "작별인사", 16);
-        addBookInfo(result, "당신도 느리게 재생할 수 있습니다", 17);
-        addBookInfo(result, "1cm 다이빙", 18);
-        addBookInfo(result, "초격차", 19);
-        addBookInfo(result, "물고기는 존재하지 않는다", 20);
+        // 실시간 TOP3는 ranking 포함
+        for (int i = 0; i < REALTIME_TOP3.size(); i++) {
+            addBookInfo(result, REALTIME_TOP3.get(i), i + 1);
+        }
 
-        return result;
+        // 태그 랭킹에 등장하는 모든 책은 ranking 없이(메타 조회용)
+        TAG_RANKINGS.values().forEach(tagMap ->
+                tagMap.values().forEach(list ->
+                        list.forEach(t -> addBookInfo(result, t, null))
+                )
+        );
+
+        // 중복 제거: bookId 기준 유니크
+        return result.stream()
+                .collect(Collectors.toMap(
+                        BookMetadataService.BookInfo::bookId,
+                        b -> b,
+                        (a, b) -> a,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
     }
 
     private void addBookInfo(List<BookMetadataService.BookInfo> list, String title, Integer ranking) {
@@ -136,108 +313,58 @@ public class HomeServiceImpl implements HomeService {
         }
     }
 
-    /**
-     * 실시간 랭킹 섹션 구성
-     * PM 데이터: 2030 인기 도서 TOP 20
-     */
+    /* =========================
+     * Sections
+     * ========================= */
+
     private RealTimeRankingSection buildRealTimeRanking(Map<String, BookSummary> bookMap) {
-        List<BookSummary> rankings = List.of(
-            bookMap.getOrDefault("트렌드 코리아 2026", createFallback(1L, "트렌드 코리아 2026", 1)),
-            bookMap.getOrDefault("비가 오면 열리는 상점", createFallback(2L, "비가 오면 열리는 상점", 2)),
-            bookMap.getOrDefault("이중 하나는 거짓말", createFallback(3L, "이중 하나는 거짓말", 3)),
-            bookMap.getOrDefault("모순", createFallback(4L, "모순", 4)),
-            bookMap.getOrDefault("메리골드 마음 세탁소", createFallback(5L, "메리골드 마음 세탁소", 5)),
-            bookMap.getOrDefault("시대예보: 핵개인의 시대", createFallback(6L, "시대예보: 핵개인의 시대", 6)),
-            bookMap.getOrDefault("마흔에 읽는 쇼펜하우어", createFallback(7L, "마흔에 읽는 쇼펜하우어", 7)),
-            bookMap.getOrDefault("불편한 편의점", createFallback(8L, "불편한 편의점", 8)),
-            bookMap.getOrDefault("돈의 속성 (300쇄 리미티드)", createFallback(9L, "돈의 속성 (300쇄 리미티드)", 9)),
-            bookMap.getOrDefault("채식주의자", createFallback(10L, "채식주의자", 10)),
-            bookMap.getOrDefault("나의 서투른 위로가 너에게 닿기를", createFallback(11L, "나의 서투른 위로가 너에게 닿기를", 11)),
-            bookMap.getOrDefault("달러구트 꿈 백화점", createFallback(12L, "달러구트 꿈 백화점", 12)),
-            bookMap.getOrDefault("모든 삶은 기록을 남긴다", createFallback(13L, "모든 삶은 기록을 남긴다", 13)),
-            bookMap.getOrDefault("데미안", createFallback(14L, "데미안", 14)),
-            bookMap.getOrDefault("기분이 태도가 되지 않게", createFallback(15L, "기분이 태도가 되지 않게", 15)),
-            bookMap.getOrDefault("작별인사", createFallback(16L, "작별인사", 16)),
-            bookMap.getOrDefault("당신도 느리게 재생할 수 있습니다", createFallback(17L, "당신도 느리게 재생할 수 있습니다", 17)),
-            bookMap.getOrDefault("1cm 다이빙", createFallback(18L, "1cm 다이빙", 18)),
-            bookMap.getOrDefault("초격차", createFallback(19L, "초격차", 19)),
-            bookMap.getOrDefault("물고기는 존재하지 않는다", createFallback(20L, "물고기는 존재하지 않는다", 20))
-        );
+        List<BookSummary> rankings = new ArrayList<>();
 
-        return new RealTimeRankingSection(
-                "2030 인기 도서 TOP 20",
-                rankings
-        );
+        for (int i = 0; i < REALTIME_TOP3.size(); i++) {
+            String title = REALTIME_TOP3.get(i);
+            int rank = i + 1;
+
+            BookSummary b = bookMap.getOrDefault(
+                    title,
+                    createFallback(BOOK_ID_MAPPING.getOrDefault(title, 0L), title, rank)
+            );
+
+            rankings.add(new BookSummary(
+                    b.bookId(),
+                    b.title(),
+                    b.author(),
+                    b.publisher(),
+                    b.coverImageUrl(),
+                    rank
+            ));
+        }
+
+        return new RealTimeRankingSection("2030 인기 도서 TOP 3", rankings);
+    }
+
+    private List<TaggedBooksSection> buildBestsellersByCategory(Map<String, BookSummary> bookMap, TagCategory category) {
+        Map<String, List<String>> tagMap = TAG_RANKINGS.get(category);
+
+        return tagMap.entrySet().stream()
+                .map(e -> createTagSection(bookMap, e.getKey(), e.getValue()))
+                .toList();
     }
 
     /**
-     * 분위기별 베스트셀러 섹션 구성
-     * PM 데이터: 분위기 세부 태그별 전체 도서 (TOP 3가 아님)
+     * ✅ 태그 섹션: ranking 필수 (1~9)
+     * ✅ 태그당 9권
      */
-    private List<TaggedBooksSection> buildMoodBestsellers(Map<String, BookSummary> bookMap) {
-        return List.of(
-            createTagSection(bookMap, "따뜻한",
-                "비가 오면 열리는 상점", "메리골드 마음 세탁소", "불편한 편의점"),
-            createTagSection(bookMap, "잔잔한",
-                "이중 하나는 거짓말", "모순", "마흔에 읽는 쇼펜하우어"),
-            createTagSection(bookMap, "유쾌한",
-                "트렌드 코리아 2026", "시대예보: 핵개인의 시대", "불편한 편의점"),
-            createTagSection(bookMap, "어두운",
-                "마흔에 읽는 쇼펜하우어", "채식주의자", "데미안"),
-            createTagSection(bookMap, "서늘한",
-                "트렌드 코리아 2026", "이중 하나는 거짓말", "모순"),
-            createTagSection(bookMap, "몽환적인",
-                "비가 오면 열리는 상점", "메리골드 마음 세탁소", "달러구트 꿈 백화점")
-        );
-    }
-
-    /**
-     * 문체별 베스트셀러 섹션 구성
-     * PM 데이터: 문체 세부 태그별 전체 도서 (TOP 3가 아님)
-     */
-    private List<TaggedBooksSection> buildWritingStyleBestsellers(Map<String, BookSummary> bookMap) {
-        return List.of(
-            createTagSection(bookMap, "간결한",
-                "트렌드 코리아 2026", "시대예보: 핵개인의 시대", "마흔에 읽는 쇼펜하우어"),
-            createTagSection(bookMap, "화려한",
-                "달러구트 꿈 백화점", "물고기는 존재하지 않는다"), // 3위 없음
-            createTagSection(bookMap, "담백한",
-                "모순", "메리골드 마음 세탁소", "불편한 편의점"),
-            createTagSection(bookMap, "섬세한",
-                "비가 오면 열리는 상점", "이중 하나는 거짓말", "메리골드 마음 세탁소"),
-            createTagSection(bookMap, "직설적",
-                "트렌드 코리아 2026", "시대예보: 핵개인의 시대", "마흔에 읽는 쇼펜하우어"),
-            createTagSection(bookMap, "은유적",
-                "비가 오면 열리는 상점", "이중 하나는 거짓말", "모순")
-        );
-    }
-
-    /**
-     * 몰입도별 베스트셀러 섹션 구성
-     * PM 데이터: 몰입도 세부 태그별 전체 도서 (TOP 3가 아님)
-     */
-    private List<TaggedBooksSection> buildImmersionBestsellers(Map<String, BookSummary> bookMap) {
-        return List.of(
-            createTagSection(bookMap, "가볍게 읽기 좋은",
-                "트렌드 코리아 2026", "돈의 속성 (300쇄 리미티드)", "나의 서투른 위로가 너에게 닿기를"),
-            createTagSection(bookMap, "생각이 필요한",
-                "모순", "시대예보: 핵개인의 시대", "마흔에 읽는 쇼펜하우어"),
-            createTagSection(bookMap, "쉽게 빠져드는",
-                "비가 오면 열리는 상점", "메리골드 마음 세탁소", "불편한 편의점"),
-            createTagSection(bookMap, "여운이 남는",
-                "이중 하나는 거짓말", "작별인사", "물고기는 존재하지 않는다")
-        );
-    }
-
-    /**
-     * 태그 섹션 생성 헬퍼 메서드
-     * bookMap에서 조회하여 태그 섹션 생성
-     */
-    private TaggedBooksSection createTagSection(Map<String, BookSummary> bookMap,
-                                                 String tagName, String... bookTitles) {
+    private TaggedBooksSection createTagSection(
+            Map<String, BookSummary> bookMap,
+            String tagName,
+            List<String> bookTitles
+    ) {
         List<BookSummary> books = new ArrayList<>();
-        for (String title : bookTitles) {
-            // ranking을 null로 설정한 새로운 BookSummary 생성
+
+        for (int i = 0; i < bookTitles.size(); i++) {
+            String title = bookTitles.get(i);
+            int ranking = i + 1;
+
             BookSummary original = bookMap.get(title);
             if (original != null) {
                 books.add(new BookSummary(
@@ -246,22 +373,27 @@ public class HomeServiceImpl implements HomeService {
                         original.author(),
                         original.publisher(),
                         original.coverImageUrl(),
-                        null // 태그별 섹션에서는 ranking null
+                        ranking
                 ));
             } else {
                 Long bookId = BOOK_ID_MAPPING.getOrDefault(title, 0L);
-                books.add(createFallback(bookId, title, null));
+                books.add(createFallback(bookId, title, ranking));
             }
+        }
+
+        // 안전장치: 혹시 9개 미만/초과이면 정규화
+        while (books.size() < 9) {
+            int ranking = books.size() + 1;
+            books.add(createFallback(0L, "미정", ranking));
+        }
+        if (books.size() > 9) {
+            books = books.subList(0, 9);
         }
 
         return new TaggedBooksSection(tagName, books);
     }
 
-    /**
-     * Fallback BookSummary 생성
-     */
     private BookSummary createFallback(Long bookId, String title, Integer ranking) {
         return new BookSummary(bookId, title, null, null, null, ranking);
     }
 }
-
