@@ -284,5 +284,14 @@ public class BooklogReadFacadeImpl implements BooklogReadFacade {
         return feedConverter.toFeedResponse(cards, slice.hasNext());
     }
 
+    @Override
+    public Slice<BooklogPost> findBookPostsSlice(Long bookId, Pageable pageable) {
+        return postRepository.findAllByBookIdAndStatusOrderByCreatedAtDesc(
+                bookId,
+                BooklogStatus.PUBLISHED,
+                pageable
+        );
+    }
+
 
 }
