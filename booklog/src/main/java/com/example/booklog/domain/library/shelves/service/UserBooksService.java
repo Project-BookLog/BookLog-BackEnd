@@ -14,6 +14,7 @@ import com.example.booklog.domain.users.repository.UsersRepository;
 import com.example.booklog.global.common.apiPayload.code.status.ErrorStatus;
 import com.example.booklog.global.common.apiPayload.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -315,5 +316,20 @@ public class UserBooksService {
 
         ub.setTotalPages(total);
 
+    }
+
+    public CurrentReadingResponse currentReading(Long userId, int limit) {
+        int safeLimit = Math.min(Math.max(limit, 1), 20); // 1~20 제한
+
+        // 읽는 중 총 개수(홈 문구용)
+        long count = userBooksRepository.countByFilter(userId, null, ReadingStatus.READING);
+
+        // 홈 카드 리스트(limit 만큼만)
+        var items = userBooksRepository.listCurrentReading(
+                userId,
+                PageRequest.of(0, safeLimit)
+        );
+
+        return new CurrentReadingResponse(count, items);
     }
 }
