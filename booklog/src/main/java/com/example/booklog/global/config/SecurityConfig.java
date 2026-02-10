@@ -85,9 +85,9 @@ public class SecurityConfig {
                         .successHandler(oAuth2AuthenticationSuccessHandler)
                         .failureHandler(oAuth2AuthenticationFailureHandler)
                 )
-                // 세션 관리 - JWT 기반이므로 STATELESS로 설정
+                // 세션 관리 - OAuth2 로그인 시 세션 필요, 그 외에는 JWT 사용
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
 
                 // JwtAuthFilter를 UsernamePasswordAuthenticationFilter 앞에 추가
