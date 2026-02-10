@@ -125,6 +125,26 @@ public interface BooksRepository extends JpaRepository<Books, Long> {
            "WHERE b.id = :bookId")
     @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
     Optional<Books> findByIdWithAuthors(@Param("bookId") Long bookId);
+
+    /**
+     * ✅ (괄호 제거 + 공백 제거) 정규화 title IN 조회
+     * - "언어의 온도(170만부 기념 에디션)" -> "언어의온도"
+     * - DB의 title도 동일하게 정규화해서 IN 비교
+     *
+     * MySQL 8+ (REGEXP_REPLACE 지원) 기준
+     */
+    @Query(value = """
+        SELECT b.*
+        FROM books b
+        WHERE REPLACE(
+                REPLACE(
+                    REGEXP_REPLACE(b.title, '\\\\([^\\\\)]*\\\\)', ''),
+                ' ', ''),
+            '\\t', ''
+        ) IN (:normTitles)
+        """, nativeQuery = true)
+    List<Books> findAllByNormalizedTitleIn(@Param("normTitles") List<String> normTitles);
+
 }
 
 
