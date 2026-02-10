@@ -65,11 +65,17 @@ public class AuthorSearchService {
 
         // 작가가 없거나 도서 데이터가 없으면 카카오 API에서 임포트
         if (authorsPage.isEmpty() || needsImport(authorsPage.getContent())) {
-            log.info("작가 '{}' 도서 데이터 임포트 시작", query);
-            bookImportService.searchAndUpsert(query, 1, 10);
+            try {
+                log.info("작가 '{}' 도서 데이터 임포트 시작", query);
+                bookImportService.searchAndUpsert(query, 1, 10);
 
-            // 임포트 후 재조회
-            authorsPage = authorsRepository.searchByName(query, pageable);
+                // 임포트 후 재조회
+                authorsPage = authorsRepository.searchByName(query, pageable);
+            } catch (Exception e) {
+                log.warn("작가 '{}' 임포트 실패 - error: {}", query, e.getMessage());
+                // 임포트 실패 시 빈 결과 반환 (500 에러 방지)
+                return AuthorSearchResponse.of(List.of(), page, size, 0L);
+            }
 
             if (authorsPage.isEmpty()) {
                 log.info("임포트 후에도 검색 결과 없음 - query: {}", query);
