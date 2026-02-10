@@ -23,6 +23,7 @@ public class BookQueryServiceImpl implements BookQueryService {
     private final BookConverter bookConverter;
     private final BookEnrichmentService bookEnrichmentService;
     private final BookTagAutoMappingService bookTagAutoMappingService;
+    private final BookDescriptionEnhancer descriptionEnhancer;
 
     /**
      * 책 상세정보 조회
@@ -43,16 +44,43 @@ public class BookQueryServiceImpl implements BookQueryService {
                 });
 
         try {
-            // ✅ 1. 태그가 없으면 자동 매핑 (AI 정보 생성보다 먼저!)
+            // ✅ 1. description이 불완전하면 보완 (기존 책 대응)
+            if (descriptionEnhancer.needsEnhancement(book.getDescription())) {
+                log.info("기존 책의 description 보완 시작 - bookId: {}, title: {}", bookId, book.getTitle());
+                String enhanced = descriptionEnhancer.enhanceFromKakaoPage(
+                    book.getDetailUrl(),
+                    book.getDescription()
+                );
+
+                // description 업데이트
+                if (enhanced != null && !enhanced.equals(book.getDescription())) {
+                    book.updateBasicInfo(
+                        book.getTitle(),
+                        enhanced, // 보완된 description
+                        book.getThumbnailUrl(),
+                        book.getDetailUrl(),
+                        book.getPublisherName(),
+                        book.getPublishedDate(),
+                        book.getIsbn(),
+                        book.getIsbn10(),
+                        book.getIsbn13(),
+                        book.getRawData()
+                    );
+                    booksRepository.save(book);
+                    log.info("기존 책의 description 보완 완료 - bookId: {}", bookId);
+                }
+            }
+
+            // ✅ 2. 태그가 없으면 자동 매핑 (AI 정보 생성보다 먼저!)
             bookTagAutoMappingService.autoMapTags(book);
 
-            // ✅ 2. AI 정보가 없으면 생성 (태그 기반)
+            // ✅ 3. AI 정보가 없으면 생성 (태그 기반)
             bookEnrichmentService.enrichBookInfo(bookId);
 
             // 엔티티 리프레시 (영속성 컨텍스트 갱신)
             booksRepository.flush();
         } catch (Exception e) {
-            log.warn("태그 매핑 또는 AI 정보 생성 중 오류 발생 - bookId: {}, 계속 진행합니다.", bookId, e);
+            log.warn("태그 매핑, AI 정보 생성 또는 description 보완 중 오류 발생 - bookId: {}, 계속 진행합니다.", bookId, e);
             // 실패해도 기본 정보는 반환
         }
 

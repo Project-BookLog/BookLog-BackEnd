@@ -7,6 +7,14 @@ import com.example.booklog.domain.search.service.BookSearchService;
 import com.example.booklog.domain.search.service.IntegratedSearchService;
 import com.example.booklog.domain.search.service.SearchKeywordService;
 import com.example.booklog.global.auth.security.CustomUserDetails;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -25,6 +33,7 @@ import java.util.concurrent.TimeUnit;
  * - 최근 검색어 조회: /api/v1/search/recent (GET)
  * - 추천 검색어 조회: /api/v1/search/recommendations (GET)
  */
+@Tag(name = "Search", description = "검색 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/search")
@@ -71,10 +80,102 @@ public class SearchController {
      * @param size 페이지 크기 (기본값: 10)
      * @return 작가 검색 결과 (작가 기본 정보 + 대표작 최대 2권)
      */
+    @Operation(
+            summary = "작가 검색",
+            description = """
+                    작가 이름으로 검색하여 작가 정보와 대표작을 조회합니다.
+                    
+                    **동작 방식:**
+                    1. DB에서 작가 검색 (이름 기준)
+                    2. 검색 결과 없거나 도서 데이터 없으면 카카오 API에서 자동 임포트
+                    3. 각 작가별 대표작 최대 2권 포함
+                    4. 페이지네이션 지원
+                    
+                    **검색 결과 없을 때:**
+                    - 빈 배열 반환 (200 OK)
+                    - 임포트 실패 시에도 500 에러 대신 빈 배열 반환
+                    
+                    **요청 방법:**
+                    - GET 요청 (Query Parameter 사용)
+                    - Body에 JSON 넣지 않음!
+                    
+                    **예시:**
+                    ```
+                    GET /api/v1/search/authors?query=김영하&page=1&size=10
+                    ```
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "검색 성공 (결과 있음 또는 빈 배열)",
+                    content = @Content(
+                            schema = @Schema(implementation = AuthorSearchResponse.class),
+                            examples = @ExampleObject(
+                                    name = "검색 성공 예시",
+                                    value = """
+                                            {
+                                              "page": 1,
+                                              "size": 10,
+                                              "isEnd": true,
+                                              "totalCount": 1,
+                                              "items": [
+                                                {
+                                                  "authorId": 123,
+                                                  "name": "김영하",
+                                                  "profileImageUrl": "https://example.com/profile.jpg",
+                                                  "occupation": "소설가",
+                                                  "nationality": "대한민국",
+                                                  "biography": "작가 소개...",
+                                                  "books": [
+                                                    {
+                                                      "bookId": 456,
+                                                      "title": "살인자의 기억법",
+                                                      "thumbnail": "https://example.com/book.jpg",
+                                                      "isbn13": "9788936433598"
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                            """
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 요청 (검색어 길이 초과, 페이지 번호/크기 유효하지 않음)",
+                    content = @Content(
+                            examples = @ExampleObject(
+                                    value = """
+                                            {
+                                              "isSuccess": false,
+                                              "code": "SRCH002",
+                                              "message": "검색어는 100자 이내로 입력해주세요."
+                                            }
+                                            """
+                            )
+                    )
+            )
+    })
     @GetMapping("/authors")
     public AuthorSearchResponse searchAuthors(
+            @Parameter(
+                    description = "검색할 작가 이름 (선택, 최대 100자)",
+                    example = "김영하"
+            )
             @RequestParam(required = false) String query,
+
+            @Parameter(
+                    description = "페이지 번호 (1부터 시작)",
+                    example = "1"
+            )
             @RequestParam(defaultValue = "1") int page,
+
+            @Parameter(
+                    description = "페이지 크기 (1-100)",
+                    example = "10"
+            )
             @RequestParam(defaultValue = "10") int size
     ) {
         return authorSearchService.searchAuthors(query, page, size);

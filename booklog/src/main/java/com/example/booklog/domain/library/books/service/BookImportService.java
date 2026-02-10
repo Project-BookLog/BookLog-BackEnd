@@ -30,6 +30,7 @@ public class BookImportService {
     private final BookSearchConverter bookSearchConverter;
     private final ObjectMapper objectMapper;
     private final EntityManager entityManager;
+    private final BookDescriptionEnhancer descriptionEnhancer;
 
     /**
      * 카카오 도서 검색 -> books/authors/book_authors 업서트 -> 검색 응답 반환
@@ -62,10 +63,16 @@ public class BookImportService {
             // 1) Upsert 기준으로 book 찾기/생성
             Books book = findOrCreateBook(isbnParts.isbn13, doc.getUrl());
 
-            // 2) book 정보 갱신
+            // 2) description 보완 (카카오 API contents가 짤려있으면 크롤링)
+            String description = doc.getContents();
+            if (descriptionEnhancer.needsEnhancement(description)) {
+                description = descriptionEnhancer.enhanceFromKakaoPage(doc.getUrl(), description);
+            }
+
+            // 3) book 정보 갱신
             book.updateBasicInfo(
                     safe(doc.getTitle()),
-                    doc.getContents(),
+                    description,
                     doc.getThumbnail(),
                     doc.getUrl(),
                     doc.getPublisher(),

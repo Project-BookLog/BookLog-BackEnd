@@ -17,7 +17,7 @@ public record BookDetailResponse(
         @Schema(description = "책 제목", example = "클린 코드")
         String title,
 
-        @Schema(description = "책 소개/설명")
+        @Schema(description = "책 소개/설명 (전체 내용, 길이 제한 없음)")
         String description,
 
         @Schema(description = "책 간략 소개 (한 문장)", example = "상실, 사랑 그리고 숨어 있는 삶의 질서에 관한 이야기")
