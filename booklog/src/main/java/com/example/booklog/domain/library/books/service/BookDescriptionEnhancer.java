@@ -73,12 +73,17 @@ public class BookDescriptionEnhancer {
             return false;
         }
 
-        // 한글 종결어미로 끝나는지 확인
+        // 한글 종결어미로 끝나는지 확인 (더 많은 패턴 추가)
         if (trimmed.endsWith("다") || trimmed.endsWith("요") ||
             trimmed.endsWith("까") || trimmed.endsWith("세요") ||
             trimmed.endsWith("습니다") || trimmed.endsWith("입니다") ||
             trimmed.endsWith("였다") || trimmed.endsWith("있다") ||
-            trimmed.endsWith("한다") || trimmed.endsWith("된다")) {
+            trimmed.endsWith("한다") || trimmed.endsWith("된다") ||
+            trimmed.endsWith("없다") || trimmed.endsWith("같다") ||
+            trimmed.endsWith("나다") || trimmed.endsWith("뜻하다") ||
+            trimmed.endsWith("받다") || trimmed.endsWith("가다") ||
+            trimmed.endsWith("오다") || trimmed.endsWith("하다") ||
+            trimmed.endsWith("되다") || trimmed.endsWith("이다")) {
             return false;
         }
 

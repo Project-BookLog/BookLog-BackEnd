@@ -298,6 +298,120 @@ public class GptService {
 
 
     /**
+     * 책 목차 생성
+     * - GPT에게 책 제목과 저자 정보를 전달하여 목차를 생성
+     *
+     * @param bookTitle 책 제목
+     * @param author 저자명
+     * @param publisher 출판사
+     * @return 목차 리스트 (예: ["1. 별에 머리를 담근 소년", "2. ..."])
+     */
+    public List<String> generateTableOfContents(String bookTitle, String author, String publisher) {
+        try {
+            log.info(">>> GPT 목차 생성 요청 시작");
+            log.info(">>> 책 제목: '{}'", bookTitle);
+            log.info(">>> 저자: '{}'", author);
+            log.info(">>> 출판사: '{}'", publisher);
+
+            String prompt = buildTableOfContentsPrompt(bookTitle, author, publisher);
+            log.info(">>> 생성된 프롬프트:\n{}", prompt);
+
+            // GPT API 호출
+            log.info(">>> GPT API 호출 중...");
+            String gptResponse = callGptApiForSimpleText(
+                    "너는 도서 정보 전문가입니다. 책 제목과 저자 정보를 바탕으로 해당 책의 목차를 정확하게 제공해주세요.",
+                    prompt
+            );
+
+            log.info(">>> GPT API 응답 수신:");
+            log.info(">>> 응답 내용:\n{}", gptResponse);
+
+            // 응답을 목차 리스트로 파싱
+            List<String> tableOfContents = parseTableOfContentsResponse(gptResponse);
+
+            log.info(">>> 파싱 완료 - 목차 개수: {}", tableOfContents.size());
+            if (!tableOfContents.isEmpty()) {
+                log.info(">>> 목차 내용:");
+                for (int i = 0; i < tableOfContents.size(); i++) {
+                    log.info(">>>   [{}] {}", i, tableOfContents.get(i));
+                }
+            } else {
+                log.warn(">>> 파싱 결과: 빈 목차 (GPT가 목차를 찾지 못함)");
+            }
+
+            return tableOfContents;
+
+        } catch (Exception e) {
+            log.error(">>> GPT 책 목차 생성 예외 발생");
+            log.error(">>> 책 제목: {}", bookTitle);
+            log.error(">>> 예외 타입: {}", e.getClass().getName());
+            log.error(">>> 예외 메시지: {}", e.getMessage());
+            log.error(">>> 스택 트레이스:", e);
+            // 실패 시 빈 리스트 반환
+            return List.of();
+        }
+    }
+
+    /**
+     * 목차 생성용 프롬프트 생성
+     */
+    private String buildTableOfContentsPrompt(String bookTitle, String author, String publisher) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("다음 책의 목차를 정확하게 제공해주세요.\n\n");
+        prompt.append("도서 정보:\n");
+        prompt.append("- 제목: ").append(bookTitle).append("\n");
+        prompt.append("- 저자: ").append(author).append("\n");
+        if (publisher != null && !publisher.isEmpty()) {
+            prompt.append("- 출판사: ").append(publisher).append("\n");
+        }
+
+        prompt.append("\n다음 형식으로 응답해주세요:\n");
+        prompt.append("1. [첫 번째 장 제목]\n");
+        prompt.append("2. [두 번째 장 제목]\n");
+        prompt.append("3. [세 번째 장 제목]\n");
+        prompt.append("...\n");
+        prompt.append("\n※ 중요:\n");
+        prompt.append("1) 실제 책의 목차를 정확하게 제공해주세요.\n");
+        prompt.append("2) 각 항목은 '번호. 제목' 형식으로 작성하세요.\n");
+        prompt.append("3) 다른 설명 없이 목차만 나열하세요.\n");
+        prompt.append("4) 목차 정보를 찾을 수 없는 경우, 해당 책에 대한 정보를 바탕으로 추정 가능한 목차를 제공해주세요.");
+
+        return prompt.toString();
+    }
+
+    /**
+     * GPT 응답에서 목차 리스트 파싱
+     */
+    private List<String> parseTableOfContentsResponse(String gptContent) {
+        if (gptContent == null || gptContent.trim().isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            String[] lines = gptContent.split("\n");
+            List<String> tableOfContents = new java.util.ArrayList<>();
+
+            for (String line : lines) {
+                String trimmed = line.trim();
+                // 빈 줄 건너뛰기
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                // 목차 항목만 추가 (숫자로 시작하는 줄)
+                if (trimmed.matches("^\\d+\\..*")) {
+                    tableOfContents.add(trimmed);
+                }
+            }
+
+            return tableOfContents;
+
+        } catch (Exception e) {
+            log.error("목차 응답 파싱 실패: {}", e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    /**
      * 마이페이지 - 월간 독서 현황 회색 문구 생성
      * @param month YYYY-MM
      * @param progressPercent 완독/(완독+읽는중) 퍼센트
@@ -364,10 +478,18 @@ public class GptService {
      */
     private String callGptApiForSimpleText(String systemMessage, String userPrompt) {
         try {
+            log.info("==== GPT API 호출 시작 ====");
             String apiKey = gptConfig.getSecretKey();
+            log.info("API Key 상태: {}", apiKey != null && !apiKey.isEmpty() && !apiKey.equals("dummy-key-for-development") ? "설정됨" : "미설정");
+
             if (apiKey == null || apiKey.isEmpty() || apiKey.equals("dummy-key-for-development")) {
+                log.error("GPT API 키가 설정되지 않음!");
                 throw new RuntimeException("GPT API 키 미설정");
             }
+
+            log.info("모델: {}", gptConfig.getModel());
+            log.info("System Message: {}", systemMessage);
+            log.info("User Prompt 길이: {} 자", userPrompt.length());
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -382,7 +504,11 @@ public class GptService {
             requestBody.put("temperature", 0.6);
             requestBody.put("max_tokens", 200);
 
+            log.info("Request Body: {}", requestBody);
+
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            log.info("OpenAI API 요청 전송 중...");
             ResponseEntity<String> response = restTemplate.exchange(
                     OPENAI_API_URL,
                     HttpMethod.POST,
@@ -390,12 +516,22 @@ public class GptService {
                     String.class
             );
 
+            log.info("OpenAI API 응답 상태: {}", response.getStatusCode());
+            log.info("응답 Body: {}", response.getBody());
+
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return extractContentFromResponse(response.getBody());
+                String content = extractContentFromResponse(response.getBody());
+                log.info("추출된 Content: {}", content);
+                return content;
             } else {
+                log.error("GPT API 호출 실패 - 상태 코드: {}", response.getStatusCode());
                 throw new RuntimeException("GPT API 호출 실패: " + response.getStatusCode());
             }
         } catch (Exception e) {
+            log.error("==== GPT API 호출 예외 발생 ====");
+            log.error("예외 타입: {}", e.getClass().getName());
+            log.error("예외 메시지: {}", e.getMessage());
+            log.error("스택 트레이스:", e);
             throw new RuntimeException("GPT API 호출 실패", e);
         }
     }
