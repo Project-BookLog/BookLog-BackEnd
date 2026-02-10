@@ -41,51 +41,189 @@ public class HomeServiceImpl implements HomeService {
                     "따뜻한", List.of(
                             new Seed(null, "불편한 편의점"),
                             new Seed(null, "메리골드 마음 세탁소"),
-                            new Seed(765L, "어서 오세요, 휴남동 서점입니다"),
-                            new Seed(null, "나의 서투른 위로가 너에게 닿기를"),
+                            new Seed(null, "어서 오세요, 휴남동 서점입니다"),
+                            new Seed(null, "나의 서툰 위로가 너에게 닿기를"),
                             new Seed(null, "세상의 마지막 우체국"),
                             new Seed(null, "밝은 밤"),
                             new Seed(null, "보노보노처럼 살다니 다행이야"),
                             new Seed(null, "곰돌이 푸, 행복한 일은 매일 있어"),
-                            new Seed(null, "당신의 인생이 왜 힘들지 않아야 한다고 생각하십니까")
+                            // ✅ 교정
+                            new Seed(null, "쇼펜하우어 아포리즘: 당신의 인생이 왜 힘들지 않아야 한다고 생각하십니까")
                     ),
                     "잔잔한", List.of(
-                            new Seed(478L, "모순"),
+                            new Seed(null, "모순"),
                             new Seed(null, "마흔에 읽는 쇼펜하우어"),
                             new Seed(null, "기분이 태도가 되지 않게"),
-                            new Seed(727L, "보통의 존재"),
-                            new Seed(null, "언어의 온도(170만부 기념 에디션)"), // ✅ 괄호 있어도 OK
-                            new Seed(null, "모든 삶은 기록을 남긴다"),
+                            new Seed(null, "보통의 존재"),
+                            new Seed(null, "언어의 온도"),
+                            // ✅ 교정
+                            new Seed(null, "모든 삶은 흔적을 남긴다"),
                             new Seed(null, "당신도 느리게 나이 들 수 있습니다"),
                             new Seed(null, "혼자 있는 시간의 힘"),
                             new Seed(null, "무례한 사람에게 웃으며 대처하는 법")
+                    ),
+                    "유쾌한", List.of(
+                            new Seed(null, "1cm 다이빙"),
+                            new Seed(null, "하마터면 열심히 살 뻔했다"),
+                            new Seed(null, "보건교사 안은영"),
+                            new Seed(null, "일의 기쁨과 슬픔"),
+                            new Seed(null, "지구에서 한아뿐"),
+                            new Seed(null, "죽고 싶지만 떡볶이는 먹고 싶어"),
+                            new Seed(null, "세이노의 가르침"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "역행자")
+                    ),
+                    "어두운", List.of(
+                            new Seed(null, "채식주의자"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "인간 실격"),
+                            new Seed(null, "7년의 밤"),
+                            new Seed(null, "28"),
+                            new Seed(null, "눈먼 자들의 도시"),
+                            new Seed(null, "구의 증명"),
+                            new Seed(null, "지극히 사적인 초능력"),
+                            new Seed(null, "소문의 벽")
+                    ),
+                    "서늘한", List.of(
+                            new Seed(null, "이중 하나는 거짓말"),
+                            new Seed(null, "종의 기원"),
+                            new Seed(null, "완전한 행복"),
+                            new Seed(null, "당신이 누군가를 죽였다"),
+                            new Seed(null, "방주"),
+                            new Seed(null, "하우스메이드"),
+                            new Seed(null, "그리고 아무도 없었다"),
+                            new Seed(null, "진이, 지니"),
+                            new Seed(null, "타인의 해석")
+                    ),
+                    "몽환적인", List.of(
+                            new Seed(null, "비가 오면 열리는 상점"),
+                            new Seed(null, "달러구트 꿈 백화점"),
+                            new Seed(null, "미드나잇 라이브러리"),
+                            new Seed(null, "연금술사"),
+                            // ✅ 교정(띄어쓰기)
+                            new Seed(null, "어린 왕자"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "거울 속 외딴 성"),
+                            new Seed(null, "물고기는 존재하지 않는다"),
+                            new Seed(null, "정오에서 가장 먼 시간")
                     )
             ),
 
             TagCategory.STYLE, Map.of(
+                    "간결한", List.of(
+                            new Seed(null, "트렌드 코리아 2026"),
+                            new Seed(null, "시대예보: 핵개인의 시대"),
+                            new Seed(null, "마흔에 읽는 쇼펜하우어"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "초격차"),
+                            new Seed(null, "킵고잉"),
+                            new Seed(null, "타이탄의 도구들"),
+                            new Seed(null, "원씽"),
+                            new Seed(null, "아주 작은 습관의 힘")
+                    ),
+                    "화려한", List.of(
+                            new Seed(null, "달러구트 꿈 백화점"),
+                            new Seed(null, "물고기는 존재하지 않는다"),
+                            new Seed(null, "위대한 개츠비"),
+                            new Seed(null, "연금술사"),
+                            new Seed(null, "향수"),
+                            new Seed(null, "파친코 1"),
+                            new Seed(null, "미드나잇 라이브러리"),
+                            new Seed(null, "모모"),
+                            new Seed(null, "오만과 편견")
+                    ),
                     "담백한", List.of(
-                            new Seed(478L, "모순"),
-                            new Seed(765L, "어서 오세요, 휴남동 서점입니다"),
-                            new Seed(727L, "보통의 존재"),
-                            new Seed(null, "언어의 온도(170만부 기념 에디션)"),
+                            new Seed(null, "모순"),
+                            new Seed(null, "어서 오세요, 휴남동 서점입니다"),
+                            new Seed(null, "보통의 존재"),
+                            new Seed(null, "언어의 온도"),
                             new Seed(null, "불편한 편의점"),
-                            new Seed(483L, "1cm 다이빙"),
-                            new Seed(743L, "하마터면 열심히 살 뻔했다"),
+                            new Seed(null, "1cm 다이빙"),
+                            new Seed(null, "하마터면 열심히 살 뻔했다"),
                             new Seed(null, "퇴사는 여행"),
                             new Seed(null, "태도의 말들")
+                    ),
+                    "섬세한", List.of(
+                            new Seed(null, "비가 오면 열리는 상점"),
+                            new Seed(null, "이중 하나는 거짓말"),
+                            new Seed(null, "메리골드 마음 세탁소"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "밝은 밤"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "데미안"),
+                            new Seed(null, "각각의 계절"),
+                            new Seed(null, "정오에서 가장 먼 시간")
+                    ),
+                    "직설적", List.of(
+                            new Seed(null, "세이노의 가르침"),
+                            new Seed(null, "역행자"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "부의 추월차선"),
+                            new Seed(null, "타이탄의 도구들"),
+                            new Seed(null, "킵고잉"),
+                            new Seed(null, "넛지"),
+                            new Seed(null, "스틱!"),
+                            new Seed(null, "그릿")
+                    ),
+                    "은유적", List.of(
+                            new Seed(null, "채식주의자"),
+                            new Seed(null, "소년이 온다"),
+                            // ✅ 교정(띄어쓰기)
+                            new Seed(null, "어린 왕자"),
+                            new Seed(null, "연금술사"),
+                            new Seed(null, "데미안"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "구의 증명"),
+                            new Seed(null, "이토록 평범한 미래"),
+                            new Seed(null, "파친코 1")
                     )
             ),
 
             TagCategory.IMMERSION, Map.of(
+                    "기분 전환", List.of(
+                            new Seed(null, "트렌드 코리아 2026"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "나의 서툰 위로가 너에게 닿기를"),
+                            new Seed(null, "1cm 다이빙"),
+                            new Seed(null, "기분이 태도가 되지 않게"),
+                            // ✅ 교정
+                            new Seed(null, "모든 삶은 흔적을 남긴다"),
+                            new Seed(null, "킵고잉"),
+                            new Seed(null, "타이탄의 도구들"),
+                            new Seed(null, "부의 추월차선")
+                    ),
+                    "지적인 탐구", List.of(
+                            new Seed(null, "모순"),
+                            new Seed(null, "시대예보: 핵개인의 시대"),
+                            new Seed(null, "마흔에 읽는 쇼펜하우어"),
+                            new Seed(null, "채식주의자"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "초격차"),
+                            new Seed(null, "사피엔스"),
+                            new Seed(null, "정의란 무엇인가"),
+                            new Seed(null, "총 균 쇠")
+                    ),
+                    "압도적 몰입", List.of(
+                            new Seed(null, "비가 오면 열리는 상점"),
+                            new Seed(null, "메리골드 마음 세탁소"),
+                            new Seed(null, "불편한 편의점"),
+                            new Seed(null, "달러구트 꿈 백화점"),
+                            new Seed(null, "파친코 1"),
+                            new Seed(null, "향수"),
+                            new Seed(null, "위대한 개츠비"),
+                            new Seed(null, "미드나잇 라이브러리"),
+                            new Seed(null, "모모")
+                    ),
                     "짙은 여운", List.of(
-                            new Seed(480L, "이중 하나는 거짓말"),
-                            new Seed(485L, "작별인사"),
-                            new Seed(136L, "물고기는 존재하지 않는다"),
-                            new Seed(28L, "데미안"),
-                            new Seed(11L, "어린 왕자"),
+                            new Seed(null, "이중 하나는 거짓말"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "물고기는 존재하지 않는다"),
+                            new Seed(null, "데미안"),
+                            // ✅ 교정(띄어쓰기)
+                            new Seed(null, "어린 왕자"),
                             new Seed(null, "연금술사"),
-                            new Seed(57L, "소년이 온다"),
-                            new Seed(null, "서늘한 여름밤"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "나는 왜 작은 실수에도 이렇게 힘들까"),
                             new Seed(null, "세상의 마지막 우체국")
                     )
             )
