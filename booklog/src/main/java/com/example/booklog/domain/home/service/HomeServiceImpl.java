@@ -10,213 +10,221 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * 홈 화면 데이터 제공 서비스 구현체 (PM 하드코딩 랭킹표 기반)
- *
- * A안: title 기반으로 DB books 조회해서 "진짜 bookId(DB PK)" 매핑 후 응답
- *
- * 주의:
- * - title이 중복되는 경우가 존재함 (어린 왕자/데미안 등)
- * - 이 구현은 "같은 title 여러 권이면 1권을 대표로 선택"하는 정책을 포함함
- */
 @Service
 @RequiredArgsConstructor
 public class HomeServiceImpl implements HomeService {
 
     private final BookMetadataService bookMetadataService;
-    private final BooksRepository booksRepository;
+    private final BooksRepository booksRepository; // ✅ 추가
 
     /* =========================
-     * PM 하드코딩 데이터셋 (title)
+     * Seed DTO (bookId + title)
+     * ========================= */
+    private record Seed(Long bookId, String title) {}
+
+    /* =========================
+     * PM 하드코딩 데이터셋 (DB bookId 기반)
      * ========================= */
 
-    private static final List<String> REALTIME_TOP3 = List.of(
-            "트렌드 코리아 2026",
-            "비가 오면 열리는 상점",
-            "이중 하나는 거짓말"
+    private static final List<Seed> REALTIME_TOP3 = List.of(
+            new Seed(41L, "트렌드 코리아 2026"),
+            new Seed(488L, "비가 오면 열리는 상점"),
+            new Seed(480L, "이중 하나는 거짓말")
     );
 
-    private static final Map<TagCategory, Map<String, List<String>>> TAG_RANKINGS = Map.of(
+    /**
+     * TagCategory -> (tagName -> seeds(9개))
+     * - seed 순서가 곧 랭킹(1~9)
+     */
+    private static final Map<TagCategory, Map<String, List<Seed>>> TAG_RANKINGS = Map.of(
             TagCategory.MOOD, Map.of(
                     "따뜻한", List.of(
-                            "불편한 편의점",
-                            "메리골드 마음 세탁소",
-                            "어서 오세요, 휴남동 서점입니다",
-                            "나의 서투른 위로가 너에게 닿기를",
-                            "세상의 마지막 우체국",
-                            "밝은 밤",
-                            "보노보노처럼 살다니 다행이야",
-                            "곰돌이 푸, 행복한 일은 매일 있어",
-                            "당신의 인생이 왜 힘들지 않아야 한다고 생각하십니까"
+                            new Seed(null, "불편한 편의점"),
+                            new Seed(null, "메리골드 마음 세탁소"),
+                            new Seed(null, "어서 오세요, 휴남동 서점입니다"),
+                            new Seed(null, "나의 서툰 위로가 너에게 닿기를"),
+                            new Seed(null, "세상의 마지막 우체국"),
+                            new Seed(null, "밝은 밤"),
+                            new Seed(null, "보노보노처럼 살다니 다행이야"),
+                            new Seed(null, "곰돌이 푸, 행복한 일은 매일 있어"),
+                            // ✅ 교정
+                            new Seed(null, "쇼펜하우어 아포리즘: 당신의 인생이 왜 힘들지 않아야 한다고 생각하십니까")
                     ),
                     "잔잔한", List.of(
-                            "모순",
-                            "마흔에 읽는 쇼펜하우어",
-                            "기분이 태도가 되지 않게",
-                            "보통의 존재",
-                            "언어의 온도",
-                            "모든 삶은 기록을 남긴다",
-                            "당신도 느리게 나이 들 수 있습니다",
-                            "혼자 있는 시간의 힘",
-                            "무례한 사람에게 웃으며 대처하는 법"
+                            new Seed(null, "모순"),
+                            new Seed(null, "마흔에 읽는 쇼펜하우어"),
+                            new Seed(null, "기분이 태도가 되지 않게"),
+                            new Seed(null, "보통의 존재"),
+                            new Seed(null, "언어의 온도"),
+                            // ✅ 교정
+                            new Seed(null, "모든 삶은 흔적을 남긴다"),
+                            new Seed(null, "당신도 느리게 나이 들 수 있습니다"),
+                            new Seed(null, "혼자 있는 시간의 힘"),
+                            new Seed(null, "무례한 사람에게 웃으며 대처하는 법")
                     ),
                     "유쾌한", List.of(
-                            "1cm 다이빙",
-                            "하마터면 열심히 살 뻔했다",
-                            "보건교사 안은영",
-                            "일의 기쁨과 슬픔",
-                            "지구에서 한아뿐",
-                            "죽고 싶지만 떡볶이는 먹고 싶어",
-                            "세이노의 가르침",
-                            "돈의 속성",
-                            "역행자"
+                            new Seed(null, "1cm 다이빙"),
+                            new Seed(null, "하마터면 열심히 살 뻔했다"),
+                            new Seed(null, "보건교사 안은영"),
+                            new Seed(null, "일의 기쁨과 슬픔"),
+                            new Seed(null, "지구에서 한아뿐"),
+                            new Seed(null, "죽고 싶지만 떡볶이는 먹고 싶어"),
+                            new Seed(null, "세이노의 가르침"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "역행자")
                     ),
                     "어두운", List.of(
-                            "채식주의자",
-                            "소년이 온다",
-                            "인간 실격",
-                            "7년의 밤",
-                            "28",
-                            "눈먼 자들의 도시",
-                            "구의 증명",
-                            "지극히 사적인 초능력",
-                            "소문의 벽"
+                            new Seed(null, "채식주의자"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "인간 실격"),
+                            new Seed(null, "7년의 밤"),
+                            new Seed(null, "28"),
+                            new Seed(null, "눈먼 자들의 도시"),
+                            new Seed(null, "구의 증명"),
+                            new Seed(null, "지극히 사적인 초능력"),
+                            new Seed(null, "소문의 벽")
                     ),
                     "서늘한", List.of(
-                            "이중 하나는 거짓말",
-                            "종의 기원",
-                            "완전한 행복",
-                            "당신이 누군가를 죽였다",
-                            "방주",
-                            "하우스메이드",
-                            "그리고 아무도 없었다",
-                            "진이, 지니",
-                            "타인의 해석"
+                            new Seed(null, "이중 하나는 거짓말"),
+                            new Seed(null, "종의 기원"),
+                            new Seed(null, "완전한 행복"),
+                            new Seed(null, "당신이 누군가를 죽였다"),
+                            new Seed(null, "방주"),
+                            new Seed(null, "하우스메이드"),
+                            new Seed(null, "그리고 아무도 없었다"),
+                            new Seed(null, "진이, 지니"),
+                            new Seed(null, "타인의 해석")
                     ),
                     "몽환적인", List.of(
-                            "비가 오면 열리는 상점",
-                            "달러구트 꿈 백화점",
-                            "미드나잇 라이브러리",
-                            "연금술사",
-                            "어린왕자",
-                            "작별인사",
-                            "거울 속의 외딴 성",
-                            "물고기는 존재하지 않는다",
-                            "정오에서 가장 먼 시간"
+                            new Seed(null, "비가 오면 열리는 상점"),
+                            new Seed(null, "달러구트 꿈 백화점"),
+                            new Seed(null, "미드나잇 라이브러리"),
+                            new Seed(null, "연금술사"),
+                            // ✅ 교정(띄어쓰기)
+                            new Seed(null, "어린 왕자"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "거울 속 외딴 성"),
+                            new Seed(null, "물고기는 존재하지 않는다"),
+                            new Seed(null, "정오에서 가장 먼 시간")
                     )
             ),
+
             TagCategory.STYLE, Map.of(
                     "간결한", List.of(
-                            "트렌드 코리아 2026",
-                            "시대예보: 핵개인의 시대",
-                            "마흔에 읽는 쇼펜하우어",
-                            "돈의 속성",
-                            "초격차",
-                            "킵고잉",
-                            "타이탄의 도구들",
-                            "원씽",
-                            "아토믹 해빗"
+                            new Seed(null, "트렌드 코리아 2026"),
+                            new Seed(null, "시대예보: 핵개인의 시대"),
+                            new Seed(null, "마흔에 읽는 쇼펜하우어"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "초격차"),
+                            new Seed(null, "킵고잉"),
+                            new Seed(null, "타이탄의 도구들"),
+                            new Seed(null, "원씽"),
+                            new Seed(null, "아주 작은 습관의 힘")
                     ),
                     "화려한", List.of(
-                            "달러구트 꿈 백화점",
-                            "물고기는 존재하지 않는다",
-                            "위대한 개츠비",
-                            "연금술사",
-                            "향수",
-                            "파친코",
-                            "미드나잇 라이브러리",
-                            "모모",
-                            "오만과 편견"
+                            new Seed(null, "달러구트 꿈 백화점"),
+                            new Seed(null, "물고기는 존재하지 않는다"),
+                            new Seed(null, "위대한 개츠비"),
+                            new Seed(null, "연금술사"),
+                            new Seed(null, "향수"),
+                            new Seed(null, "파친코 1"),
+                            new Seed(null, "미드나잇 라이브러리"),
+                            new Seed(null, "모모"),
+                            new Seed(null, "오만과 편견")
                     ),
                     "담백한", List.of(
-                            "모순",
-                            "어서 오세요, 휴남동 서점입니다",
-                            "보통의 존재",
-                            "언어의 온도",
-                            "불편한 편의점",
-                            "1cm 다이빙",
-                            "하마터면 열심히 살 뻔했다",
-                            "퇴사는 여행",
-                            "태도의 말들"
+                            new Seed(null, "모순"),
+                            new Seed(null, "어서 오세요, 휴남동 서점입니다"),
+                            new Seed(null, "보통의 존재"),
+                            new Seed(null, "언어의 온도"),
+                            new Seed(null, "불편한 편의점"),
+                            new Seed(null, "1cm 다이빙"),
+                            new Seed(null, "하마터면 열심히 살 뻔했다"),
+                            new Seed(null, "퇴사는 여행"),
+                            new Seed(null, "태도의 말들")
                     ),
                     "섬세한", List.of(
-                            "비가 오면 열리는 상점",
-                            "이중 하나는 거짓말",
-                            "메리골드 마음 세탁소",
-                            "소년이 온다",
-                            "밝은 밤",
-                            "작별인사",
-                            "데미안",
-                            "각각의 계절",
-                            "정오에서 가장 먼 시간"
+                            new Seed(null, "비가 오면 열리는 상점"),
+                            new Seed(null, "이중 하나는 거짓말"),
+                            new Seed(null, "메리골드 마음 세탁소"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "밝은 밤"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "데미안"),
+                            new Seed(null, "각각의 계절"),
+                            new Seed(null, "정오에서 가장 먼 시간")
                     ),
                     "직설적", List.of(
-                            "세이노의 가르침",
-                            "역행자",
-                            "돈의 속성",
-                            "부의 추월차선",
-                            "타이탄의 도구들",
-                            "킵고잉",
-                            "넛지",
-                            "스틱!",
-                            "그릿"
+                            new Seed(null, "세이노의 가르침"),
+                            new Seed(null, "역행자"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "부의 추월차선"),
+                            new Seed(null, "타이탄의 도구들"),
+                            new Seed(null, "킵고잉"),
+                            new Seed(null, "넛지"),
+                            new Seed(null, "스틱!"),
+                            new Seed(null, "그릿")
                     ),
                     "은유적", List.of(
-                            "채식주의자",
-                            "소년이 온다",
-                            "어린왕자",
-                            "연금술사",
-                            "데미안",
-                            "작별인사",
-                            "구의 증명",
-                            "이토록 평범한 미래",
-                            "파친코"
+                            new Seed(null, "채식주의자"),
+                            new Seed(null, "소년이 온다"),
+                            // ✅ 교정(띄어쓰기)
+                            new Seed(null, "어린 왕자"),
+                            new Seed(null, "연금술사"),
+                            new Seed(null, "데미안"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "구의 증명"),
+                            new Seed(null, "이토록 평범한 미래"),
+                            new Seed(null, "파친코 1")
                     )
             ),
+
             TagCategory.IMMERSION, Map.of(
                     "기분 전환", List.of(
-                            "트렌드 코리아 2026",
-                            "돈의 속성",
-                            "나의 서투른 위로가 너에게 닿기를",
-                            "1cm 다이빙",
-                            "기분이 태도가 되지 않게",
-                            "모든 삶은 기록을 남긴다",
-                            "킵고잉",
-                            "타이탄의 도구들",
-                            "부의 추월차선"
+                            new Seed(null, "트렌드 코리아 2026"),
+                            new Seed(null, "돈의 속성"),
+                            new Seed(null, "나의 서툰 위로가 너에게 닿기를"),
+                            new Seed(null, "1cm 다이빙"),
+                            new Seed(null, "기분이 태도가 되지 않게"),
+                            // ✅ 교정
+                            new Seed(null, "모든 삶은 흔적을 남긴다"),
+                            new Seed(null, "킵고잉"),
+                            new Seed(null, "타이탄의 도구들"),
+                            new Seed(null, "부의 추월차선")
                     ),
                     "지적인 탐구", List.of(
-                            "모순",
-                            "시대예보: 핵개인의 시대",
-                            "마흔에 읽는 쇼펜하우어",
-                            "채식주의자",
-                            "소년이 온다",
-                            "초격차",
-                            "사피엔스",
-                            "정의란 무엇인가",
-                            "총 균 쇠"
+                            new Seed(null, "모순"),
+                            new Seed(null, "시대예보: 핵개인의 시대"),
+                            new Seed(null, "마흔에 읽는 쇼펜하우어"),
+                            new Seed(null, "채식주의자"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "초격차"),
+                            new Seed(null, "사피엔스"),
+                            new Seed(null, "정의란 무엇인가"),
+                            new Seed(null, "총 균 쇠")
                     ),
                     "압도적 몰입", List.of(
-                            "비가 오면 열리는 상점",
-                            "메리골드 마음 세탁소",
-                            "불편한 편의점",
-                            "달러구트 꿈 백화점",
-                            "파친코",
-                            "향수",
-                            "위대한 개츠비",
-                            "미드나잇 라이브러리",
-                            "모모"
+                            new Seed(null, "비가 오면 열리는 상점"),
+                            new Seed(null, "메리골드 마음 세탁소"),
+                            new Seed(null, "불편한 편의점"),
+                            new Seed(null, "달러구트 꿈 백화점"),
+                            new Seed(null, "파친코 1"),
+                            new Seed(null, "향수"),
+                            new Seed(null, "위대한 개츠비"),
+                            new Seed(null, "미드나잇 라이브러리"),
+                            new Seed(null, "모모")
                     ),
                     "짙은 여운", List.of(
-                            "이중 하나는 거짓말",
-                            "작별인사",
-                            "물고기는 존재하지 않는다",
-                            "데미안",
-                            "어린왕자",
-                            "연금술사",
-                            "소년이 온다",
-                            "서늘한 여름밤",
-                            "세상의 마지막 우체국"
+                            new Seed(null, "이중 하나는 거짓말"),
+                            new Seed(null, "작별인사"),
+                            new Seed(null, "물고기는 존재하지 않는다"),
+                            new Seed(null, "데미안"),
+                            // ✅ 교정(띄어쓰기)
+                            new Seed(null, "어린 왕자"),
+                            new Seed(null, "연금술사"),
+                            new Seed(null, "소년이 온다"),
+                            new Seed(null, "나는 왜 작은 실수에도 이렇게 힘들까"),
+                            new Seed(null, "세상의 마지막 우체국")
                     )
             )
     );
@@ -227,162 +235,128 @@ public class HomeServiceImpl implements HomeService {
 
     @Override
     public HomeResponse getHomeData() {
-        // 1) 홈에서 필요한 모든 title 수집
-        Set<String> titles = collectAllTitles();
 
-        // 2) DB에서 title IN 조회 (fetch join 포함)
-        List<Books> found = booksRepository.findAllByTitleIn(new ArrayList<>(titles));
+        // ✅ 0) null bookId seed들을 제목 기반으로 DB에서 찾아서 매핑(괄호 제거 포함)
+        Map<String, Long> normTitleToId = buildNormTitleToBookIdMapForNullSeeds();
 
-        // 3) title -> DB bookId 매핑 (중복 title은 대표 1권 선택)
-        Map<String, Long> titleToBookId = pickRepresentativeBookIdByTitle(found);
+        // 1) 홈에서 필요한 모든 seed 수집 (bookId가 있는 것만)
+        List<BookMetadataService.BookInfo> infos = collectAllBookInfos(normTitleToId);
 
-        // 4) 메타조회용 BookInfo 구성 (bookId는 DB PK)
-        List<BookMetadataService.BookInfo> allInfos = collectAllBookInfos(titleToBookId);
+        // 2) 메타 붙이기 (bookId 기반)
+        List<BookSummary> allBooks = bookMetadataService.getBookSummaries(infos);
 
-        // 5) 메타 붙이기
-        List<BookSummary> allBooks = bookMetadataService.getBookSummaries(allInfos);
-
-        // 6) title -> BookSummary 맵 (동일 title 중복 가능하지만 홈은 1권만 쓴다는 전제)
-        Map<String, BookSummary> bookMap = allBooks.stream()
-                .collect(Collectors.toMap(BookSummary::title, b -> b, (a, b) -> a));
+        // 3) bookId -> summary
+        Map<Long, BookSummary> bookMap = allBooks.stream()
+                .filter(b -> b.bookId() != null)
+                .collect(Collectors.toMap(BookSummary::bookId, b -> b, (a, b) -> a));
 
         return new HomeResponse(
-                buildRealTimeRanking(bookMap, titleToBookId),
-                buildBestsellersByCategory(bookMap, titleToBookId, TagCategory.MOOD),
-                buildBestsellersByCategory(bookMap, titleToBookId, TagCategory.STYLE),
-                buildBestsellersByCategory(bookMap, titleToBookId, TagCategory.IMMERSION)
+                buildRealTimeRanking(bookMap),
+                buildBestsellersByCategory(bookMap, TagCategory.MOOD, normTitleToId),
+                buildBestsellersByCategory(bookMap, TagCategory.STYLE, normTitleToId),
+                buildBestsellersByCategory(bookMap, TagCategory.IMMERSION, normTitleToId)
         );
     }
 
     /* =========================
-     * Collect titles
+     * Normalize / DB Resolve
      * ========================= */
 
-    private Set<String> collectAllTitles() {
-        Set<String> titles = new LinkedHashSet<>();
-        titles.addAll(REALTIME_TOP3);
-        TAG_RANKINGS.values().forEach(tagMap ->
-                tagMap.values().forEach(titles::addAll)
-        );
-        return titles;
+    private String normalizeTitle(String t) {
+        if (t == null) return null;
+        // ( ... ) 제거 + 공백 제거
+        return t.replaceAll("\\([^\\)]*\\)", "")
+                .replaceAll("\\s+", "")
+                .trim();
     }
 
     /**
-     * title이 중복되는 경우 "대표 1권"을 선택하는 정책이 필요함.
-     *
-     * 현재 정책:
-     * - publishedDate가 더 최신인 책 우선
-     * - publishedDate가 같거나 null이면 id가 큰 책 우선
+     * Seed의 bookId가 null인 애들만 모아서
+     * 정규화 title IN 으로 DB에서 찾아 대표 bookId 매핑
      */
-    private Map<String, Long> pickRepresentativeBookIdByTitle(List<Books> found) {
-        Map<String, Books> best = new HashMap<>();
+    private Map<String, Long> buildNormTitleToBookIdMapForNullSeeds() {
+        Set<String> need = new HashSet<>();
 
-        for (Books b : found) {
-            String title = b.getTitle();
-            Books cur = best.get(title);
+        TAG_RANKINGS.values().forEach(tagMap ->
+                tagMap.values().forEach(list ->
+                        list.forEach(s -> {
+                            if (s.bookId() == null && s.title() != null && !s.title().isBlank()) {
+                                need.add(normalizeTitle(s.title()));
+                            }
+                        })
+                )
+        );
 
-            if (cur == null) {
-                best.put(title, b);
-                continue;
-            }
+        if (need.isEmpty()) return Map.of();
 
-            if (isBetterRepresentative(b, cur)) {
-                best.put(title, b);
-            }
-        }
+        List<Books> found = booksRepository.findAllByNormalizedTitleIn(new ArrayList<>(need));
 
-        return best.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().getId()
+        // 정규화제목 충돌 시: publishedDate 최신 > id 큰 값 선택
+        return found.stream()
+                .collect(Collectors.groupingBy(
+                        b -> normalizeTitle(b.getTitle()),
+                        Collectors.collectingAndThen(
+                                Collectors.maxBy(Comparator
+                                        .comparing(Books::getPublishedDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                                        .thenComparing(Books::getId)
+                                ),
+                                opt -> opt.map(Books::getId).orElse(null)
+                        )
                 ));
     }
 
-    private boolean isBetterRepresentative(Books candidate, Books current) {
-        // 1) publishedDate 비교 (null은 가장 뒤로)
-        if (candidate.getPublishedDate() != null && current.getPublishedDate() == null) return true;
-        if (candidate.getPublishedDate() == null && current.getPublishedDate() != null) return false;
-
-        if (candidate.getPublishedDate() != null && current.getPublishedDate() != null) {
-            int cmp = candidate.getPublishedDate().compareTo(current.getPublishedDate());
-            if (cmp != 0) return cmp > 0; // 최신 우선
-        }
-
-        // 2) id 큰 것 우선
-        return candidate.getId() != null && current.getId() != null
-                && candidate.getId() > current.getId();
+    private Long resolveBookId(Seed s, Map<String, Long> normTitleToId) {
+        if (s.bookId() != null) return s.bookId();
+        if (s.title() == null) return null;
+        return normTitleToId.get(normalizeTitle(s.title()));
     }
 
     /* =========================
      * BookInfo
      * ========================= */
 
-    private List<BookMetadataService.BookInfo> collectAllBookInfos(Map<String, Long> titleToBookId) {
-        List<BookMetadataService.BookInfo> result = new ArrayList<>();
+    private List<BookMetadataService.BookInfo> collectAllBookInfos(Map<String, Long> normTitleToId) {
+        LinkedHashMap<Long, BookMetadataService.BookInfo> dedup = new LinkedHashMap<>();
 
-        // 실시간 TOP3는 ranking 포함
+        // realtime top3 (rank 포함)
         for (int i = 0; i < REALTIME_TOP3.size(); i++) {
-            String title = REALTIME_TOP3.get(i);
-            int rank = i + 1;
-
-            Long bookId = titleToBookId.get(title);
-            if (bookId != null) {
-                result.add(new BookMetadataService.BookInfo(bookId, title, rank));
-            }
+            Seed s = REALTIME_TOP3.get(i);
+            if (s.bookId() == null) continue;
+            dedup.put(s.bookId(), new BookMetadataService.BookInfo(s.bookId(), s.title(), i + 1));
         }
 
-        // 태그 랭킹은 ranking 없이(메타 조회용)
+        // tag rankings (rank 없이 메타 조회용) - ✅ null이면 DB에서 찾아서 넣기
         TAG_RANKINGS.values().forEach(tagMap ->
                 tagMap.values().forEach(list ->
-                        list.forEach(title -> {
-                            Long bookId = titleToBookId.get(title);
-                            if (bookId != null) {
-                                result.add(new BookMetadataService.BookInfo(bookId, title, null));
-                            }
+                        list.forEach(s -> {
+                            Long id = resolveBookId(s, normTitleToId);
+                            if (id == null) return;
+                            dedup.putIfAbsent(id, new BookMetadataService.BookInfo(id, s.title(), null));
                         })
                 )
         );
 
-        // 중복 제거: bookId 기준
-        return result.stream()
-                .collect(Collectors.toMap(
-                        BookMetadataService.BookInfo::bookId,
-                        b -> b,
-                        (a, b) -> a,
-                        LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .toList();
+        return new ArrayList<>(dedup.values());
     }
 
     /* =========================
      * Sections
      * ========================= */
 
-    private RealTimeRankingSection buildRealTimeRanking(
-            Map<String, BookSummary> bookMap,
-            Map<String, Long> titleToBookId
-    ) {
+    private RealTimeRankingSection buildRealTimeRanking(Map<Long, BookSummary> bookMap) {
         List<BookSummary> rankings = new ArrayList<>();
 
         for (int i = 0; i < REALTIME_TOP3.size(); i++) {
-            String title = REALTIME_TOP3.get(i);
+            Seed s = REALTIME_TOP3.get(i);
             int rank = i + 1;
 
-            BookSummary b = bookMap.get(title);
+            BookSummary b = bookMap.get(s.bookId());
             if (b != null) {
                 rankings.add(new BookSummary(
-                        b.bookId(),
-                        b.title(),
-                        b.author(),
-                        b.publisher(),
-                        b.coverImageUrl(),
-                        rank
+                        b.bookId(), b.title(), b.author(), b.publisher(), b.coverImageUrl(), rank
                 ));
             } else {
-                Long bookId = titleToBookId.getOrDefault(title, 0L);
-                rankings.add(createFallback(bookId, title, rank));
+                rankings.add(createFallback(s.bookId(), s.title(), rank));
             }
         }
 
@@ -390,49 +364,48 @@ public class HomeServiceImpl implements HomeService {
     }
 
     private List<TaggedBooksSection> buildBestsellersByCategory(
-            Map<String, BookSummary> bookMap,
-            Map<String, Long> titleToBookId,
-            TagCategory category
+            Map<Long, BookSummary> bookMap,
+            TagCategory category,
+            Map<String, Long> normTitleToId
     ) {
-        Map<String, List<String>> tagMap = TAG_RANKINGS.getOrDefault(category, Map.of());
+        Map<String, List<Seed>> tagMap = TAG_RANKINGS.getOrDefault(category, Map.of());
 
         return tagMap.entrySet().stream()
-                .map(e -> createTagSection(bookMap, titleToBookId, e.getKey(), e.getValue()))
+                .map(e -> createTagSection(bookMap, normTitleToId, e.getKey(), e.getValue()))
                 .toList();
     }
 
     private TaggedBooksSection createTagSection(
-            Map<String, BookSummary> bookMap,
-            Map<String, Long> titleToBookId,
+            Map<Long, BookSummary> bookMap,
+            Map<String, Long> normTitleToId,
             String tagName,
-            List<String> bookTitles
+            List<Seed> seeds
     ) {
         List<BookSummary> books = new ArrayList<>();
 
-        for (int i = 0; i < bookTitles.size(); i++) {
-            String title = bookTitles.get(i);
+        for (int i = 0; i < seeds.size(); i++) {
+            Seed s = seeds.get(i);
             int ranking = i + 1;
 
-            BookSummary original = bookMap.get(title);
-            if (original != null) {
+            Long id = resolveBookId(s, normTitleToId);
+
+            if (id == null) {
+                books.add(createFallback(0L, s.title(), ranking));
+                continue;
+            }
+
+            BookSummary b = bookMap.get(id);
+            if (b != null) {
                 books.add(new BookSummary(
-                        original.bookId(),
-                        original.title(),
-                        original.author(),
-                        original.publisher(),
-                        original.coverImageUrl(),
-                        ranking
+                        b.bookId(), b.title(), b.author(), b.publisher(), b.coverImageUrl(), ranking
                 ));
             } else {
-                Long bookId = titleToBookId.getOrDefault(title, 0L);
-                books.add(createFallback(bookId, title, ranking));
+                books.add(createFallback(id, s.title(), ranking));
             }
         }
 
-        // 9개 정규화
         while (books.size() < 9) {
-            int ranking = books.size() + 1;
-            books.add(createFallback(0L, "미정", ranking));
+            books.add(createFallback(0L, "미정", books.size() + 1));
         }
         if (books.size() > 9) {
             books = books.subList(0, 9);
