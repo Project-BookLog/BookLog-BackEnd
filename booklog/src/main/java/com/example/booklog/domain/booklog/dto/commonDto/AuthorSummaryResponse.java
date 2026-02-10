@@ -8,5 +8,6 @@ import lombok.Getter;
 public class AuthorSummaryResponse {
     private Long userId;
     private String nickname;
+    private String email;
     private String profileImageUrl; // nullable
 }
