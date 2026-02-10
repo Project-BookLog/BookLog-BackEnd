@@ -87,6 +87,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         // Users 엔티티 생성
         Users newUser = Users.builder()
                 .nickname(oAuth2UserInfo.getName())
+                .email(oAuth2UserInfo.getEmail())
                 .profileImageUrl(oAuth2UserInfo.getProfileImageUrl())
                 .status(UserStatus.ACTIVE)
                 .build();
