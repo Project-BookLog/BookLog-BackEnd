@@ -1,10 +1,20 @@
 server:
   forward-headers-strategy: framework
   port: ${PORT:8080}
+  servlet:
+    session:
+      cookie:
+        same-site: none
+        secure: ${SESSION_COOKIE_SECURE:false}  # 로컬: false, 프로덕션: true
+        http-only: true
 
 spring:
   application:
     name: "booklog" # "booklog"
+
+  # 세션 설정 (OAuth2 로그인용)
+  session:
+    timeout: 1800s # 30분
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver # MySQL JDBC 드라이버 클래스 이름

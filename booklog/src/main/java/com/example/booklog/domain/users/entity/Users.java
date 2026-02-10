@@ -18,6 +18,9 @@ public class Users extends BaseEntity {
     @Column(name = "user_id")
     private Long id;
 
+    @Column(name = "email", length = 255, nullable = false, unique = true)
+    private String email;
+
     @Column(name = "nickname", length = 50)
     private String nickname;
 
@@ -31,6 +34,7 @@ public class Users extends BaseEntity {
     @Builder
     public Users(String nickname, String profileImageUrl, UserStatus status) {
         this.nickname = nickname;
+        this.email = email;
         this.profileImageUrl = profileImageUrl;
         this.status = status != null ? status : UserStatus.ACTIVE;
     }

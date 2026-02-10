@@ -19,9 +19,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // username(이메일)으로 LOCAL provider의 AuthAccounts 조회
         AuthAccounts account = authAccountsRepository
-                .findByEmailAndProvider(username, AuthProvider.LOCAL)
+                .findByEmail(username)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.NOT_FOUND));
 
         // CustomUserDetails 반환
