@@ -1,5 +1,6 @@
-package com.example.booklog.domain.tags.mapping;
+package com.example.booklog.domain.tags.repository;
 
+import com.example.booklog.domain.tags.mapping.BookTags;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
