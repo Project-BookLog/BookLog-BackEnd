@@ -32,7 +32,7 @@ public class UserReadPortImpl implements UserReadPort {
         return new AuthorViewImpl(
                 u.getId(),
                 u.getNickname(),
-                null,
+                u.getEmail(),
                 u.getProfileImageUrl(),
                 null
         );
@@ -49,7 +49,7 @@ public class UserReadPortImpl implements UserReadPort {
         return new AuthorViewImpl(
                 u.getId(),
                 u.getNickname(),
-                null, // 상세에서는 email 반환
+                u.getEmail(), // 상세에서는 email 반환
                 u.getProfileImageUrl(),
                 followedByMe
         );
@@ -66,7 +66,7 @@ public class UserReadPortImpl implements UserReadPort {
                 .map(u -> (AuthorView) new AuthorViewImpl(
                         u.getId(),
                         u.getNickname(),
-                        null,
+                        u.getEmail(),
                         u.getProfileImageUrl(),
                         null
                 ))
