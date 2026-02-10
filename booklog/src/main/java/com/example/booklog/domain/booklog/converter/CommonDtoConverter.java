@@ -13,11 +13,19 @@ import java.util.List;
 @Component
 public class CommonDtoConverter {
 
+    private static String emailId(String email) {
+        if (email == null || email.isBlank()) return "";
+        int at = email.indexOf('@');
+        return at > 0 ? email.substring(0, at) : email; // '@' 없으면 그대로
+    }
+
+
     public AuthorSummaryResponse toAuthorSummary(AuthorView v) {
         if (v == null) return null;
         return AuthorSummaryResponse.builder()
                 .userId(v.getUserId())
                 .nickname(v.getNickname())
+                .email(emailId(v.getEmail()))
                 .profileImageUrl(v.getProfileImageUrl())
                 .build();
     }

@@ -18,6 +18,7 @@ public class AuthConverter {
     ) {
         // Users 생성
         Users user = Users.builder()
+                .email(dto.email())
                 .nickname(dto.name())
                 .status(UserStatus.ACTIVE)
                 .build();
