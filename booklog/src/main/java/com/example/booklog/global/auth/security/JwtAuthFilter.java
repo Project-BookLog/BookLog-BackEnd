@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static reactor.netty.http.HttpConnectionLiveness.log;
+
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
@@ -68,6 +70,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
             filterChain.doFilter(request, response);
         } catch (Exception e) {
+            // 서버 로그(web.stdout.log)에서 실제 에러 원인을 바로 확인할 수 있습니다.
+            log.error("JWT 필터 에러 발생: {}", e.getMessage(), e);
+
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
