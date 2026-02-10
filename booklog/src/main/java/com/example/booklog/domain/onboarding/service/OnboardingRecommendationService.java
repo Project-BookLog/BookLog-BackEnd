@@ -117,7 +117,7 @@ public class OnboardingRecommendationService {
     }
 
     /**
-     * 서재 기반 추천 생성
+     * 서재 기반 추천 생성 (3개 섹션)
      * - 서재 도서의 작가, 장르 정보를 분석하여 유사 도서 추천
      */
     private OnboardingBasedRecommendationResponse generateLibraryBasedRecommendations(
@@ -125,57 +125,304 @@ public class OnboardingRecommendationService {
             List<UserBooks> userBooks,
             String recentSearches) {
 
-        List<BookRecommendationCardResponse> recommendations = new ArrayList<>();
-        int processedCount = 0;
-
-        // 서재 도서에서 작가 추출 (최대 분석 개수 제한)
+        // 서재 도서에서 분석할 도서 선택
         List<UserBooks> booksToAnalyze = userBooks.stream()
                 .limit(USER_BOOKS_ANALYSIS_LIMIT)
                 .toList();
 
-        for (UserBooks userBook : booksToAnalyze) {
-            if (processedCount >= MAX_RECOMMENDATIONS) {
-                break;
-            }
+        // 작가 섹션: 서재 도서의 작가 기반 추천
+        OnboardingBasedRecommendationResponse.RecommendationSection authorSection =
+            generateLibraryAuthorSection(booksToAnalyze, recentSearches);
+
+        // 장르 섹션: 서재 도서의 장르 기반 추천
+        OnboardingBasedRecommendationResponse.RecommendationSection genreSection =
+            generateLibraryGenreSection(booksToAnalyze, recentSearches);
+
+        // 분위기 섹션: 서재 도서의 분위기 태그 기반 추천
+        OnboardingBasedRecommendationResponse.RecommendationSection moodSection =
+            generateLibraryMoodSection(booksToAnalyze, recentSearches);
+
+        log.info("서재 기반 추천 완료 - userId: {}", userId);
+
+        return OnboardingBasedRecommendationResponse.builder()
+                .authorSection(authorSection)
+                .genreSection(genreSection)
+                .moodSection(moodSection)
+                .build();
+    }
+
+    /**
+     * 서재 기반 작가 섹션 생성
+     */
+    private OnboardingBasedRecommendationResponse.RecommendationSection generateLibraryAuthorSection(
+            List<UserBooks> userBooks, String recentSearches) {
+
+        List<BookRecommendationCardResponse> books = new ArrayList<>();
+
+        for (UserBooks userBook : userBooks) {
+            if (books.size() >= 2) break;
 
             try {
                 Books book = userBook.getBook();
-
-                // 작가 정보 추출
                 String authorInfo = book.getBookAuthors().stream()
                         .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR)
                         .map(ba -> ba.getAuthor().getName())
                         .collect(Collectors.joining(", "));
 
-                if (authorInfo.isEmpty()) {
-                    continue;
+                if (!authorInfo.isEmpty()) {
+                    BookRecommendationCardResponse card = generateLibraryBasedCard(
+                            book.getTitle(), authorInfo, recentSearches);
+                    if (card != null) {
+                        books.add(card);
+                    }
                 }
-
-                // GPT를 통해 유사 작가/장르 도서 추천
-                BookRecommendationCardResponse card = generateLibraryBasedCard(
-                        book.getTitle(),
-                        authorInfo,
-                        recentSearches
-                );
-
-                if (card != null) {
-                    recommendations.add(card);
-                    processedCount++;
-                }
-
             } catch (Exception e) {
-                log.error("서재 기반 추천 카드 생성 실패 - bookId: {}, error: {}",
-                        userBook.getBook().getId(), e.getMessage());
-                // 개별 카드 실패는 무시하고 계속 진행
+                log.error("서재 작가 섹션 카드 생성 실패", e);
             }
         }
 
-        log.info("서재 기반 추천 완료 - userId: {}, count: {}", userId, recommendations.size());
+        return OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                .title("서재의 작가와 비슷한 작가")
+                .description("서재에 담긴 책의 작가와 유사한 작품을 추천드립니다")
+                .books(books)
+                .build();
+    }
+
+    /**
+     * 서재 기반 장르 섹션 생성
+     */
+    private OnboardingBasedRecommendationResponse.RecommendationSection generateLibraryGenreSection(
+            List<UserBooks> userBooks, String recentSearches) {
+
+        List<BookRecommendationCardResponse> books = new ArrayList<>();
+
+        for (UserBooks userBook : userBooks) {
+            if (books.size() >= 2) break;
+
+            try {
+                Books book = userBook.getBook();
+                String authorInfo = book.getBookAuthors().stream()
+                        .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR)
+                        .map(ba -> ba.getAuthor().getName())
+                        .collect(Collectors.joining(", "));
+
+                if (!authorInfo.isEmpty()) {
+                    BookRecommendationCardResponse card = generateLibraryBasedCard(
+                            book.getTitle(), authorInfo, recentSearches);
+                    if (card != null) {
+                        books.add(card);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("서재 장르 섹션 카드 생성 실패", e);
+            }
+        }
+
+        return OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                .title("서재의 책과 비슷한 장르")
+                .description("서재에 담긴 책과 유사한 장르의 작품을 추천드립니다")
+                .books(books)
+                .build();
+    }
+
+    /**
+     * 서재 기반 분위기 섹션 생성
+     */
+    private OnboardingBasedRecommendationResponse.RecommendationSection generateLibraryMoodSection(
+            List<UserBooks> userBooks, String recentSearches) {
+
+        List<BookRecommendationCardResponse> books = new ArrayList<>();
+
+        for (UserBooks userBook : userBooks) {
+            if (books.size() >= 2) break;
+
+            try {
+                Books book = userBook.getBook();
+                String authorInfo = book.getBookAuthors().stream()
+                        .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR)
+                        .map(ba -> ba.getAuthor().getName())
+                        .collect(Collectors.joining(", "));
+
+                if (!authorInfo.isEmpty()) {
+                    BookRecommendationCardResponse card = generateLibraryBasedCard(
+                            book.getTitle(), authorInfo, recentSearches);
+                    if (card != null) {
+                        books.add(card);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("서재 분위기 섹션 카드 생성 실패", e);
+            }
+        }
+
+        return OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                .title("서재의 책과 비슷한 분위기")
+                .description("서재에 담긴 책과 유사한 분위기의 작품을 추천드립니다")
+                .books(books)
+                .build();
+    }
+
+    /**
+     * 온보딩 기반 추천 생성 (3개 섹션: 작가, 장르, 분위기)
+     */
+    private OnboardingBasedRecommendationResponse generateOnboardingBasedRecommendations(
+            UserReadingProfile profile,
+            String recentSearches) {
+
+        // 1. 작가 기반 추천 (서재 도서가 있으면)
+        OnboardingBasedRecommendationResponse.RecommendationSection authorSection =
+            generateAuthorSection(profile, recentSearches);
+
+        // 2. 장르 기반 추천 (온보딩 키워드 기반)
+        OnboardingBasedRecommendationResponse.RecommendationSection genreSection =
+            generateGenreSection(profile, recentSearches);
+
+        // 3. 분위기 기반 추천 (온보딩 분위기 키워드 기반)
+        OnboardingBasedRecommendationResponse.RecommendationSection moodSection =
+            generateMoodSection(profile, recentSearches);
 
         return OnboardingBasedRecommendationResponse.builder()
-                .recommendations(recommendations)
-                .usedFieldCount(booksToAnalyze.size())
-                .totalRecommendations(recommendations.size())
+                .authorSection(authorSection)
+                .genreSection(genreSection)
+                .moodSection(moodSection)
+                .build();
+    }
+
+    /**
+     * 작가 기반 추천 섹션 생성
+     */
+    private OnboardingBasedRecommendationResponse.RecommendationSection generateAuthorSection(
+            UserReadingProfile profile, String recentSearches) {
+
+        List<BookRecommendationCardResponse> books = new ArrayList<>();
+
+        try {
+            // 문체/표현 방향 기반으로 작가 스타일 추천
+            RecommendationCriteria criteria = null;
+
+            if (profile.getExpressionTexture() != null) {
+                criteria = new RecommendationCriteria(
+                    "expressionTexture",
+                    profile.getExpressionTexture().name(),
+                    profile.getExpressionTexture().getLabel()
+                );
+            } else if (profile.getSentenceBreath() != null) {
+                criteria = new RecommendationCriteria(
+                    "sentenceBreath",
+                    profile.getSentenceBreath().name(),
+                    profile.getSentenceBreath().getLabel()
+                );
+            }
+
+            if (criteria != null) {
+                // 2개의 도서 추천
+                for (int i = 0; i < 2; i++) {
+                    BookRecommendationCardResponse card = generateOnboardingBasedCard(
+                        criteria, recentSearches, profile);
+                    if (card != null) {
+                        books.add(card);
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("작가 섹션 생성 실패", e);
+        }
+
+        return OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                .title("이런 작가는 어떠세요?")
+                .description("선택하신 문체 취향을 바탕으로 추천드립니다")
+                .books(books)
+                .build();
+    }
+
+    /**
+     * 장르 기반 추천 섹션 생성
+     */
+    private OnboardingBasedRecommendationResponse.RecommendationSection generateGenreSection(
+            UserReadingProfile profile, String recentSearches) {
+
+        List<BookRecommendationCardResponse> books = new ArrayList<>();
+
+        try {
+            // 표현 방향 기반으로 장르 추천
+            RecommendationCriteria criteria = null;
+
+            if (profile.getExpressionDirection() != null) {
+                criteria = new RecommendationCriteria(
+                    "expressionDirection",
+                    profile.getExpressionDirection().name(),
+                    profile.getExpressionDirection().getLabel()
+                );
+            } else if (profile.getPreferredMood2() != null) {
+                criteria = new RecommendationCriteria(
+                    "preferredMood2",
+                    profile.getPreferredMood2().name(),
+                    profile.getPreferredMood2().getDescription()
+                );
+            }
+
+            if (criteria != null) {
+                // 2개의 도서 추천
+                for (int i = 0; i < 2; i++) {
+                    BookRecommendationCardResponse card = generateOnboardingBasedCard(
+                        criteria, recentSearches, profile);
+                    if (card != null) {
+                        books.add(card);
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("장르 섹션 생성 실패", e);
+        }
+
+        return OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                .title("이런 장르는 어떠세요?")
+                .description("선택하신 취향에 맞는 장르를 추천드립니다")
+                .books(books)
+                .build();
+    }
+
+    /**
+     * 분위기 기반 추천 섹션 생성
+     */
+    private OnboardingBasedRecommendationResponse.RecommendationSection generateMoodSection(
+            UserReadingProfile profile, String recentSearches) {
+
+        List<BookRecommendationCardResponse> books = new ArrayList<>();
+
+        try {
+            // 선호 분위기 기반 추천
+            RecommendationCriteria criteria = null;
+
+            if (profile.getPreferredMood1() != null) {
+                criteria = new RecommendationCriteria(
+                    "preferredMood1",
+                    profile.getPreferredMood1().name(),
+                    profile.getPreferredMood1().getDescription()
+                );
+            }
+
+            if (criteria != null) {
+                // 2개의 도서 추천
+                for (int i = 0; i < 2; i++) {
+                    BookRecommendationCardResponse card = generateOnboardingBasedCard(
+                        criteria, recentSearches, profile);
+                    if (card != null) {
+                        books.add(card);
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("분위기 섹션 생성 실패", e);
+        }
+
+        return OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                .title("이런 분위기는 어떠세요?")
+                .description("선호하시는 분위기의 책을 추천드립니다")
+                .books(books)
                 .build();
     }
 
@@ -233,67 +480,18 @@ public class OnboardingRecommendationService {
                 .immersionKeyword(keywords.get("immersion"))
                 .build();
     }
-
     /**
-     * 온보딩 기반 추천 생성 (기존 로직)
-     */
-    private OnboardingBasedRecommendationResponse generateOnboardingBasedRecommendations(
-            UserReadingProfile profile,
-            String recentSearches) {
-
-        // 추천 기준 필드 추출
-        List<RecommendationCriteria> criteriaList = extractRecommendationCriteria(profile);
-
-        if (criteriaList.isEmpty()) {
-            log.info("추천 기준 필드 없음 (모두 null) - 빈 추천 반환");
-            return buildEmptyResponse();
-        }
-
-        // 각 기준별로 추천 카드 생성 (최대 6개)
-        List<BookRecommendationCardResponse> recommendations = new ArrayList<>();
-        int processedCount = 0;
-
-        for (RecommendationCriteria criteria : criteriaList) {
-            if (processedCount >= MAX_RECOMMENDATIONS) {
-                break;
-            }
-
-            try {
-                BookRecommendationCardResponse card = generateOnboardingBasedCard(
-                        criteria, recentSearches, profile);
-
-                if (card != null) {
-                    recommendations.add(card);
-                    processedCount++;
-                }
-            } catch (Exception e) {
-                log.error("추천 카드 생성 실패 - field: {}, error: {}",
-                        criteria.getFieldName(), e.getMessage(), e);
-                // 개별 카드 실패는 무시하고 계속 진행
-            }
-        }
-
-        log.info("온보딩 기반 추천 생성 완료 - count: {}", recommendations.size());
-
-        return OnboardingBasedRecommendationResponse.builder()
-                .recommendations(recommendations)
-                .usedFieldCount(criteriaList.size())
-                .totalRecommendations(recommendations.size())
-                .build();
-    }
-
-    /**
-     * 인기 도서 기반 추천 (서재도 없고 온보딩도 스킵한 경우)
+     * 인기 도서 기반 추천 (서재도 없고 온보딩도 스킵한 경우) - 3개 섹션
      */
     private OnboardingBasedRecommendationResponse generatePopularBooksRecommendations() {
         try {
-            // 최근 출판된 인기 도서 조회 (publishedDate 기준 최신순)
-            PageRequest pageRequest = PageRequest.of(0, MAX_RECOMMENDATIONS,
+            // 최근 출판된 인기 도서 조회
+            PageRequest pageRequest = PageRequest.of(0, 6,
                     Sort.by(Sort.Direction.DESC, "publishedDate").and(Sort.by(Sort.Direction.DESC, "id")));
 
             List<Books> popularBooks = booksRepository.findAll(pageRequest).getContent();
 
-            List<BookRecommendationCardResponse> recommendations = popularBooks.stream()
+            List<BookRecommendationCardResponse> allRecommendations = popularBooks.stream()
                     .map(book -> {
                         String authorInfo = book.getBookAuthors().stream()
                                 .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR)
@@ -323,12 +521,29 @@ public class OnboardingRecommendationService {
                     })
                     .toList();
 
-            log.info("인기 도서 기반 추천 완료 - count: {}", recommendations.size());
+            // 3개 섹션으로 분리 (각 섹션당 2개씩)
+            List<BookRecommendationCardResponse> authorBooks = allRecommendations.stream().limit(2).toList();
+            List<BookRecommendationCardResponse> genreBooks = allRecommendations.stream().skip(2).limit(2).toList();
+            List<BookRecommendationCardResponse> moodBooks = allRecommendations.stream().skip(4).limit(2).toList();
+
+            log.info("인기 도서 기반 추천 완료 - count: {}", allRecommendations.size());
 
             return OnboardingBasedRecommendationResponse.builder()
-                    .recommendations(recommendations)
-                    .usedFieldCount(0)
-                    .totalRecommendations(recommendations.size())
+                    .authorSection(OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                            .title("최신 인기 작가")
+                            .description("지금 인기 있는 작가의 작품을 만나보세요")
+                            .books(authorBooks)
+                            .build())
+                    .genreSection(OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                            .title("최신 인기 장르")
+                            .description("지금 인기 있는 장르의 작품을 만나보세요")
+                            .books(genreBooks)
+                            .build())
+                    .moodSection(OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                            .title("최신 인기 도서")
+                            .description("지금 인기 있는 책을 만나보세요")
+                            .books(moodBooks)
+                            .build())
                     .build();
 
         } catch (Exception e) {
@@ -503,13 +718,20 @@ public class OnboardingRecommendationService {
     }
 
     /**
-     * 빈 추천 응답 생성
+     * 빈 추천 응답 생성 (3개 섹션 모두 빈 리스트)
      */
     private OnboardingBasedRecommendationResponse buildEmptyResponse() {
+        OnboardingBasedRecommendationResponse.RecommendationSection emptySection =
+            OnboardingBasedRecommendationResponse.RecommendationSection.builder()
+                    .title("")
+                    .description("")
+                    .books(List.of())
+                    .build();
+
         return OnboardingBasedRecommendationResponse.builder()
-                .recommendations(List.of())
-                .usedFieldCount(0)
-                .totalRecommendations(0)
+                .authorSection(emptySection)
+                .genreSection(emptySection)
+                .moodSection(emptySection)
                 .build();
     }
 

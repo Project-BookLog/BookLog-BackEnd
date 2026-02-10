@@ -4,6 +4,7 @@ import com.example.booklog.domain.library.books.converter.BookConverter;
 import com.example.booklog.domain.library.books.dto.BookDetailResponse;
 import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class BookQueryServiceImpl implements BookQueryService {
     private final BookEnrichmentService bookEnrichmentService;
     private final BookTagAutoMappingService bookTagAutoMappingService;
     private final BookDescriptionEnhancer descriptionEnhancer;
+    private final EntityManager entityManager;
 
     /**
      * 책 상세정보 조회
@@ -77,8 +79,11 @@ public class BookQueryServiceImpl implements BookQueryService {
             // ✅ 3. AI 정보가 없으면 생성 (태그 기반)
             bookEnrichmentService.enrichBookInfo(bookId);
 
-            // 엔티티 리프레시 (영속성 컨텍스트 갱신)
+            // ✅ 4. DB 즉시 반영 및 엔티티 최신화
             booksRepository.flush();
+            entityManager.refresh(book);
+            log.info("엔티티 refresh 완료 - bookId: {}, tableOfContents: {}",
+                    bookId, book.getTableOfContents());
         } catch (Exception e) {
             log.warn("태그 매핑, AI 정보 생성 또는 description 보완 중 오류 발생 - bookId: {}, 계속 진행합니다.", bookId, e);
             // 실패해도 기본 정보는 반환
