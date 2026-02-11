@@ -1,5 +1,6 @@
 package com.example.booklog.global.auth.security;
 
+import com.example.booklog.domain.users.entity.AuthAccounts;
 import com.example.booklog.global.auth.entity.RefreshToken;
 import com.example.booklog.global.auth.repository.RefreshTokenRepository;
 import jakarta.servlet.ServletException;
@@ -34,39 +35,40 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
 
-        CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
-        Long userId = oAuth2User.getUserId();
-        String email = oAuth2User.getAccount().getEmail();
+        try {
+            CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
+            Long userId = oAuth2User.getUserId();
+            String email = oAuth2User.getAccount().getEmail();
 
-        log.info("OAuth2 로그인 성공: userId={}, email={}", userId, email);
+            log.info("OAuth2 로그인 성공: userId={}, email={}", userId, email);
 
-        // CustomUserDetails 생성 (role 정보 포함)
-        CustomUserDetails userDetails = new CustomUserDetails(oAuth2User.getAccount());
+            // JWT 토큰 생성
+            String accessToken = jwtUtil.generateAccessToken(email);
+            String refreshToken = jwtUtil.generateRefreshToken(email);
 
-        // JWT 토큰 생성 (issuedAt 포함, 매번 다른 토큰 생성)
-        String accessToken = jwtUtil.createAccessToken(userDetails);
-        String refreshToken = jwtUtil.createRefreshToken(userDetails);
+            // Refresh Token DB에 저장
+            refreshTokenRepository.findByEmail(email)
+                    .ifPresent(refreshTokenRepository::delete);
 
-        log.info("생성된 액세스 토큰 (앞 30자): {}", accessToken.substring(0, Math.min(30, accessToken.length())));
-        log.info("생성된 리프레시 토큰 (앞 30자): {}", refreshToken.substring(0, Math.min(30, refreshToken.length())));
+            RefreshToken refreshTokenEntity = RefreshToken.builder()
+                    .token(refreshToken)
+                    .email(email)
+                    .expiryDate(java.time.LocalDateTime.now().plus(jwtUtil.getRefreshExpiration()))
+                    .build();
+            refreshTokenRepository.save(refreshTokenEntity);
 
-        // Refresh Token DB에 저장
-        refreshTokenRepository.deleteAllByEmail(email);
+            // 프론트엔드로 리다이렉트 (토큰을 쿼리 파라미터로 전달)
+            String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
+                    .queryParam("accessToken", accessToken)
+                    .queryParam("refreshToken", refreshToken)
+                    .build().toUriString();
 
-        RefreshToken refreshTokenEntity = RefreshToken.builder()
-                .token(refreshToken)
-                .email(email)
-                .expiryDate(java.time.LocalDateTime.now().plus(jwtUtil.getRefreshExpiration()))
-                .build();
-        refreshTokenRepository.save(refreshTokenEntity);
+            log.info("OAuth2 로그인 리다이렉트: targetUrl={}", targetUrl);
+            getRedirectStrategy().sendRedirect(request, response, targetUrl);
 
-        // 프론트엔드로 리다이렉트 (토큰을 쿼리 파라미터로 전달)
-        String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
-                .queryParam("accessToken", accessToken)
-                .queryParam("refreshToken", refreshToken)
-                .build().toUriString();
-
-        log.info("OAuth2 로그인 리다이렉트: targetUrl={}", targetUrl);
-        getRedirectStrategy().sendRedirect(request, response, targetUrl);
+        } catch (Exception e) {
+            log.error("OAuth2 로그인 처리 중 예외 발생: {}", e.getMessage(), e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Authentication processing failed");
+        }
     }
 }

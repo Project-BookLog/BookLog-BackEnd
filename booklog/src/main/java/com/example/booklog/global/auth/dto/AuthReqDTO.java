@@ -57,11 +57,11 @@ public class AuthReqDTO {
             String password
     ) {}
 
-    // 카카오 소셜 로그인 (테스트용)
-    @Schema(name = "AuthKakaoLoginRequest", description = "카카오 소셜 로그인 테스트 요청")
+    // 카카오 소셜 로그인 (JWT 토큰 검증)
+    @Schema(name = "AuthKakaoLoginRequest", description = "카카오 소셜 로그인 JWT 토큰 검증 요청")
     public record KakaoLoginDTO(
-            @NotBlank(message = "카카오 액세스 토큰을 입력해주세요.")
-            @Schema(description = "카카오 액세스 토큰", example = "kakao_access_token_here")
+            @NotBlank(message = "JWT 액세스 토큰을 입력해주세요.")
+            @Schema(description = "콜백으로 받은 JWT 액세스 토큰", example = "eyJhbGciOiJIUzUxMiJ9...")
             String kakaoAccessToken
     ) {}
 }
