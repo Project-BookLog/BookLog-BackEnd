@@ -8,10 +8,6 @@ import com.example.booklog.global.auth.service.AuthCommandService;
 import com.example.booklog.global.auth.service.AuthQueryService;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -70,25 +66,28 @@ public class AuthController {
         );
     }
 
-    // 카카오 소셜 로그인 (POST 방식 - Swagger 테스트용)
+    // ⚠️ 사용하지 마세요 - Swagger 테스트 전용
     @PostMapping("/kakao/login")
     @Operation(
-            summary = "카카오 소셜 로그인",
+            summary = "[사용 금지] 카카오 소셜 로그인 테스트",
             description = """
-                    카카오 액세스 토큰으로 로그인하여 JWT 토큰을 발급받습니다.
+                    ⚠️ **프론트엔드는 이 API를 사용하지 마세요!**
                     
-                    **[Request]**
-                    - kakaoAccessToken: 카카오에서 발급받은 액세스 토큰
+                    이 API는 Swagger 테스트 전용입니다.
                     
-                    **[Response]**
-                    - accessToken: JWT 액세스 토큰
-                    - refreshToken: JWT 리프레시 토큰
-                    - tokenType: Bearer
-                    - expiresIn: 만료 시간 (초)
+                    **올바른 사용 방법:**
+                    1. `GET /api/v1/auth/kakao/redirect` 호출
+                    2. 카카오 로그인 진행
+                    3. 콜백 URL에서 `accessToken`과 `refreshToken` 파싱
+                    4. **바로 localStorage에 저장하고 사용**
                     
-                    **[카카오 액세스 토큰 발급 방법]**
-                    1. 카카오 개발자 도구: https://developers.kakao.com/tool/rest-api/open/get/v2-user-me
-                    2. 액세스 토큰 발급 후 아래 Request Body에 입력
+                    **이 API를 사용하면 안 되는 이유:**
+                    - 콜백으로 이미 유효한 JWT 토큰을 받았습니다
+                    - 다시 검증할 필요가 없습니다
+                    - 401 에러만 발생합니다
+                    
+                    **Swagger 테스트용:**
+                    - 콜백으로 받은 JWT 토큰을 여기에 넣으면 토큰이 재발급됩니다
                     """
     )
     public ApiResponse<AuthResDTO.LoginDTO> kakaoLogin(
