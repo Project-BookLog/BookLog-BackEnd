@@ -57,6 +57,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
+        log.info("요청 들어옴: {} {}, Authorization 헤더: {}",
+                request.getMethod(), request.getRequestURI(), request.getHeader("Authorization"));
+
         try {
             // 토큰 가져오기
             String token = request.getHeader("Authorization");
