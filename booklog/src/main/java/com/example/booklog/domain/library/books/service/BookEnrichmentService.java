@@ -43,7 +43,7 @@ public class BookEnrichmentService {
      *
      * @param bookId 책 ID
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void enrichBookInfo(Long bookId) {
         Books book = booksRepository.findById(bookId)
                 .orElseThrow(() -> new IllegalArgumentException("책을 찾을 수 없습니다: " + bookId));
@@ -206,14 +206,24 @@ public class BookEnrichmentService {
             return book.getTasteAnalysis();
         }
 
+        log.info("=== 취향 분석 생성 시작 - bookId: {}, title: {} ===", book.getId(), book.getTitle());
+
         // 책의 태그를 카테고리별로 분류
         List<BookTags> bookTags = bookTagsRepository.findAllByBookId(book.getId());
+        log.info("책 태그 조회 완료 - bookId: {}, 태그 개수: {}", book.getId(), bookTags.size());
 
         Map<TagCategory, List<Tags>> tagsByCategory = new HashMap<>();
         for (BookTags bt : bookTags) {
             TagCategory category = bt.getTag().getCategory();
             tagsByCategory.computeIfAbsent(category, k -> new ArrayList<>()).add(bt.getTag());
+            log.info("태그 추가 - bookId: {}, category: {}, tagName: {}",
+                    book.getId(), category, bt.getTag().getName());
         }
+
+        log.info("카테고리별 태그 분류 완료 - MOOD: {}, STYLE: {}, IMMERSION: {}",
+                tagsByCategory.getOrDefault(TagCategory.MOOD, List.of()).size(),
+                tagsByCategory.getOrDefault(TagCategory.STYLE, List.of()).size(),
+                tagsByCategory.getOrDefault(TagCategory.IMMERSION, List.of()).size());
 
         Map<String, Map<String, String>> analysis = new HashMap<>();
 
@@ -238,7 +248,10 @@ public class BookEnrichmentService {
                 "한 번 시작하면 멈출 수 없는 흡인력이 있습니다."
         ));
 
-        return objectMapper.writeValueAsString(analysis);
+        String result = objectMapper.writeValueAsString(analysis);
+        log.info("취향 분석 생성 완료 - bookId: {}, result: {}", book.getId(), result);
+
+        return result;
     }
 
     /**
@@ -259,10 +272,14 @@ public class BookEnrichmentService {
             // description: 카테고리별로 의미 있는 설명 생성
             String description = generateTagDescription(tagName, mainTag.getCategory());
             detail.put("description", description);
+
+            log.info("태그 기반 취향 정보 생성 - category: {}, title: #{}", category, tagName);
         } else {
             // 태그가 없으면 기본값
             detail.put("title", category);
             detail.put("description", defaultDesc);
+
+            log.warn("태그 없음, 기본값 사용 - category: {}, title: {}", category, category);
         }
 
         return detail;
