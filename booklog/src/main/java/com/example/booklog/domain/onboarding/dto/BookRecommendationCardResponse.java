@@ -16,6 +16,11 @@ import lombok.NoArgsConstructor;
 public class BookRecommendationCardResponse {
 
     /**
+     * 도서 ID
+     */
+    private Long bookId;
+
+    /**
      * 도서 제목
      */
     private String bookTitle;
@@ -48,18 +53,36 @@ public class BookRecommendationCardResponse {
     private String recommendationSourceValue;
 
     /**
-     * 분위기 키워드
+     * 키워드 1 (온보딩 기반: 분위기, 서재 기반: 작가)
      */
+    private String keyword1;
+
+    /**
+     * 키워드 2 (온보딩 기반: 문체, 서재 기반: 장르)
+     */
+    private String keyword2;
+
+    /**
+     * 키워드 3 (온보딩 기반: 몰입도, 서재 기반: 분위기)
+     */
+    private String keyword3;
+
+    /**
+     * 분위기 키워드 (deprecated - 하위 호환성을 위해 유지)
+     */
+    @Deprecated
     private String moodKeyword;
 
     /**
-     * 문체 키워드
+     * 문체 키워드 (deprecated - 하위 호환성을 위해 유지)
      */
+    @Deprecated
     private String styleKeyword;
 
     /**
-     * 몰입도 키워드
+     * 몰입도 키워드 (deprecated - 하위 호환성을 위해 유지)
      */
+    @Deprecated
     private String immersionKeyword;
 }
 

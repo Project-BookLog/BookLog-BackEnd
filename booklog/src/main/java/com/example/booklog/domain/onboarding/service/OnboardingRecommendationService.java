@@ -468,13 +468,22 @@ public class OnboardingRecommendationService {
                 recommendedBook.getPublisher()
         );
 
+        // 추천된 도서가 DB에 있는지 확인하여 bookId 가져오기
+        Long bookId = findBookIdByIsbn(recommendedBook.getIsbn());
+
         return BookRecommendationCardResponse.builder()
+                .bookId(bookId)
                 .bookTitle(recommendedBook.getTitle())
                 .author(recommendedAuthor)
                 .publisher(recommendedBook.getPublisher())
                 .thumbnailUrl(recommendedBook.getThumbnail())
                 .recommendationSourceField("library_book")
                 .recommendationSourceValue(bookTitle)
+                // 서재 기반: 작가, 장르, 분위기
+                .keyword1(recommendedAuthor) // 작가
+                .keyword2(keywords.get("genre") != null ? keywords.get("genre") : "장르 미상") // 장르
+                .keyword3(keywords.get("mood")) // 분위기
+                // 하위 호환성
                 .moodKeyword(keywords.get("mood"))
                 .styleKeyword(keywords.get("style"))
                 .immersionKeyword(keywords.get("immersion"))
@@ -508,12 +517,18 @@ public class OnboardingRecommendationService {
                         );
 
                         return BookRecommendationCardResponse.builder()
+                                .bookId(book.getId())
                                 .bookTitle(book.getTitle())
                                 .author(author)
                                 .publisher(book.getPublisherName())
                                 .thumbnailUrl(book.getThumbnailUrl())
                                 .recommendationSourceField("popular_ranking")
                                 .recommendationSourceValue("최신 인기 도서")
+                                // 인기 도서 기반(서재/온보딩 없음): 작가, 장르, 분위기
+                                .keyword1(author) // 작가
+                                .keyword2(keywords.get("genre") != null ? keywords.get("genre") : "장르 미상") // 장르
+                                .keyword3(keywords.get("mood")) // 분위기
+                                // 하위 호환성
                                 .moodKeyword(keywords.get("mood"))
                                 .styleKeyword(keywords.get("style"))
                                 .immersionKeyword(keywords.get("immersion"))
@@ -596,8 +611,12 @@ public class OnboardingRecommendationService {
         String immersionKeyword = determineKeyword(profile.getExpressionDirection(),
                 profile.getSentenceBreath(), "immersion");
 
+        // 추천된 도서가 DB에 있는지 확인하여 bookId 가져오기
+        Long bookId = findBookIdByIsbn(book.getIsbn());
+
         // 5. 추천 카드 DTO 생성
         return BookRecommendationCardResponse.builder()
+                .bookId(bookId)
                 .bookTitle(book.getTitle())
                 .author(book.getAuthors() != null && !book.getAuthors().isEmpty()
                         ? String.join(", ", book.getAuthors()) : "저자 미상")
@@ -605,6 +624,11 @@ public class OnboardingRecommendationService {
                 .thumbnailUrl(book.getThumbnail())
                 .recommendationSourceField(criteria.getFieldName())
                 .recommendationSourceValue(criteria.getFieldValue())
+                // 온보딩 기반: 분위기, 문체, 몰입도
+                .keyword1(moodKeyword) // 분위기
+                .keyword2(styleKeyword) // 문체
+                .keyword3(immersionKeyword) // 몰입도
+                // 하위 호환성
                 .moodKeyword(moodKeyword)
                 .styleKeyword(styleKeyword)
                 .immersionKeyword(immersionKeyword)
@@ -733,6 +757,44 @@ public class OnboardingRecommendationService {
                 .genreSection(emptySection)
                 .moodSection(emptySection)
                 .build();
+    }
+
+    /**
+     * ISBN으로 DB에서 bookId를 찾는 헬퍼 메서드
+     * - Kakao API의 isbn 필드 형식: "isbn10 isbn13" 또는 "isbn13"
+     */
+    private Long findBookIdByIsbn(String isbnRaw) {
+        if (isbnRaw == null || isbnRaw.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // ISBN 문자열 파싱 (공백으로 구분)
+            String[] isbns = isbnRaw.trim().split("\\s+");
+
+            // ISBN13 우선 검색 (마지막 값)
+            if (isbns.length > 0) {
+                String isbn13 = isbns[isbns.length - 1];
+                Books book = booksRepository.findByIsbn13(isbn13).orElse(null);
+                if (book != null) {
+                    return book.getId();
+                }
+            }
+
+            // ISBN10 검색 (첫 번째 값)
+            if (isbns.length > 1) {
+                String isbn10 = isbns[0];
+                Books book = booksRepository.findByIsbn10(isbn10).orElse(null);
+                if (book != null) {
+                    return book.getId();
+                }
+            }
+
+            return null;
+        } catch (Exception e) {
+            log.warn("ISBN으로 bookId 조회 실패 - isbn: {}", isbnRaw, e);
+            return null;
+        }
     }
 
     /**

@@ -8,6 +8,7 @@ import com.example.booklog.domain.library.books.entity.Books;
 import com.example.booklog.domain.library.books.repository.AuthorRewardRepository;
 import com.example.booklog.domain.library.books.repository.AuthorsRepository;
 import com.example.booklog.domain.library.books.repository.BooksRepository;
+import com.example.booklog.domain.tags.repository.BookTagsRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
@@ -34,12 +35,14 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
     private final AuthorsRepository authorsRepository;
     private final BooksRepository booksRepository;
     private final AuthorRewardRepository authorRewardRepository;
+    private final BookTagsRepository bookTagsRepository;
     private final AuthorKakaoImportService authorKakaoImportService;
     private final AuthorGptEnrichmentService authorGptEnrichmentService;
     private final AuthorEnrichmentService authorEnrichmentService;
     private final BookImportService bookImportService;
     private final BookEnrichmentService bookEnrichmentService;
     private final BookTagAutoAssignService bookTagAutoAssignService;
+    private final BookTasteEnrichmentAsyncService bookTasteEnrichmentAsyncService;
     private final EntityManager entityManager;
     private final ObjectMapper objectMapper;
 
@@ -91,14 +94,12 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
         // 4. 수상경력 조회
         List<AuthorAwards> awards = authorRewardRepository.findAllByAuthor_Id(authorId);
 
-        // 5. 책 취향 정보 보완 (tasteAnalysis가 없는 책들)
-        enrichBooksWithTasteInfo(books);
+        // 5. 책 취향 정보 비동기 보완 (백그라운드에서 처리, 응답 대기 안 함)
+        List<Long> bookIds = books.stream().map(Books::getId).collect(Collectors.toList());
+        bookTasteEnrichmentAsyncService.enrichBooksAsync(bookIds);
+        log.info("비동기 책 취향 정보 보완 요청 완료 - 책 개수: {}", bookIds.size());
 
-        // 6. 책 목록 다시 조회 (보완된 데이터 반영)
-        books = booksRepository.findBooksByAuthorId(authorId);
-        books = applySorting(books, sortBy);
-
-        // 7. DTO 변환
+        // 6. DTO 변환 (비동기 작업 결과를 기다리지 않고 바로 응답)
         AuthorDetailResponse response = convertToResponse(author, books, awards);
 
         log.info("작가 상세정보 조회 완료 - authorId: {}, name: {}, 도서 수: {}",
@@ -107,41 +108,87 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
         return response;
     }
 
+
     /**
-     * 책 취향 정보 보완 (tasteAnalysis가 없는 책들)
+     * 태그 할당이 필요한지 확인
      */
-    private void enrichBooksWithTasteInfo(List<Books> books) {
-        for (Books book : books) {
-            if (book.getTasteAnalysis() == null || book.getTasteAnalysis().isEmpty()) {
-                try {
-                    log.info("책 취향 정보 생성 시작 - bookId: {}, title: {}", book.getId(), book.getTitle());
-                    bookEnrichmentService.enrichBookInfo(book.getId());
-                    log.info("책 취향 정보 생성 완료 - bookId: {}", book.getId());
-                } catch (Exception e) {
-                    log.warn("책 취향 정보 생성 실패 (계속 진행) - bookId: {}, error: {}",
-                            book.getId(), e.getMessage());
-                }
-            }
+    private boolean needsTagAssignment(Long bookId) {
+        List<com.example.booklog.domain.tags.mapping.BookTags> existingTags =
+                bookTagsRepository.findAllByBookId(bookId);
+        return existingTags.isEmpty();
+    }
+
+    /**
+     * tasteAnalysis 업데이트가 필요한지 확인
+     * - tasteAnalysis가 null이거나 비어있는 경우
+     * - 기본값("분위기", "문체", "몰입도")으로 되어있는 경우
+     */
+    private boolean needsTasteAnalysisUpdate(Books book) {
+        String tasteAnalysis = book.getTasteAnalysis();
+
+        // null이거나 비어있으면 업데이트 필요
+        if (tasteAnalysis == null || tasteAnalysis.isEmpty()) {
+            return true;
         }
+
+        // 기본값 확인 (분위기, 문체, 몰입도)
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(tasteAnalysis);
+            String moodTitle = root.path("mood").path("title").asText("");
+            String styleTitle = root.path("style").path("title").asText("");
+            String immersionTitle = root.path("immersion").path("title").asText("");
+
+            // 기본값으로 설정된 경우 업데이트 필요
+            boolean isDefaultMood = "분위기".equals(moodTitle);
+            boolean isDefaultStyle = "문체".equals(styleTitle);
+            boolean isDefaultImmersion = "몰입도".equals(immersionTitle);
+
+            if (isDefaultMood || isDefaultStyle || isDefaultImmersion) {
+                log.info("기본값 tasteAnalysis 감지 - bookId: {}, mood: {}, style: {}, immersion: {}",
+                        book.getId(), moodTitle, styleTitle, immersionTitle);
+                return true;
+            }
+        } catch (Exception e) {
+            log.warn("tasteAnalysis 파싱 실패, 재생성 필요 - bookId: {}", book.getId());
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * tasteAnalysis 강제 재생성 (기존 값을 null로 설정)
+     */
+    private void forceRegenerateTasteAnalysis(Long bookId) {
+        booksRepository.findById(bookId).ifPresent(book -> {
+            book.updateEnrichedInfo(
+                    book.getShortIntro(),
+                    book.getAiTasteComment(),
+                    null, // tasteAnalysis를 null로 설정하여 재생성 유도
+                    book.getTableOfContents()
+            );
+            booksRepository.save(book);
+        });
     }
 
     /**
      * 작가 정보 보완 필요 여부 확인
-     * - 필수 정보(biography, profileImage, profileJson)가 없으면 무조건 보완 시도
+     * - 필수 정보(biography, profileImage, profileJson, nationality)가 없으면 무조건 보완 시도
      */
     private boolean needsEnrichment(Authors author) {
         // 필수 정보가 있는지 확인
         boolean hasNoBiography = author.getBiography() == null || author.getBiography().isEmpty();
         boolean hasNoProfileImage = author.getProfileImageUrl() == null || author.getProfileImageUrl().isEmpty();
         boolean hasNoProfileJson = author.getProfileJson() == null || author.getProfileJson().isEmpty();
+        boolean hasNoNationality = author.getNationality() == null || author.getNationality().isEmpty();
 
         List<Books> books = booksRepository.findBooksByAuthorId(author.getId());
         boolean hasNoBooks = books.isEmpty();
 
-        boolean hasIncompleteData = hasNoBiography || hasNoProfileImage || hasNoProfileJson || hasNoBooks;
+        boolean hasIncompleteData = hasNoBiography || hasNoProfileImage || hasNoProfileJson || hasNoNationality || hasNoBooks;
 
-        log.info("작가 정보 상태 체크 - authorId: {}, hasNoBiography: {}, hasNoProfileImage: {}, hasNoProfileJson: {}, hasNoBooks: {}",
-                author.getId(), hasNoBiography, hasNoProfileImage, hasNoProfileJson, hasNoBooks);
+        log.info("작가 정보 상태 체크 - authorId: {}, hasNoBiography: {}, hasNoProfileImage: {}, hasNoProfileJson: {}, hasNoNationality: {}, hasNoBooks: {}",
+                author.getId(), hasNoBiography, hasNoProfileImage, hasNoProfileJson, hasNoNationality, hasNoBooks);
 
         // 데이터가 불완전하면 무조건 보완 시도
         return hasIncompleteData;
@@ -178,14 +225,16 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
             // 3. 카카오 API 결과 확인
             KakaoBookSearchResponse kakaoResponse = authorKakaoImportService.searchAuthorBooks(author.getName());
 
-            // 4. 작가 정보가 부족하면 GPT로 보완
+            // 4. 작가 정보가 부족하면 GPT로 보완 (biography, profileJson, nationality 중 하나라도 없으면)
             boolean needsGptEnrichment =
                     (author.getBiography() == null || author.getBiography().isEmpty()) ||
-                    (author.getProfileJson() == null || author.getProfileJson().isEmpty());
+                    (author.getProfileJson() == null || author.getProfileJson().isEmpty()) ||
+                    (author.getNationality() == null || author.getNationality().isEmpty());
 
-            log.info("GPT 보완 필요 여부 체크 - biography: {}, profileJson: {}, needsGptEnrichment: {}",
+            log.info("GPT 보완 필요 여부 체크 - biography: {}, profileJson: {}, nationality: {}, needsGptEnrichment: {}",
                     author.getBiography() != null ? "있음" : "없음",
                     author.getProfileJson() != null ? "있음" : "없음",
+                    author.getNationality() != null ? author.getNationality() : "없음",
                     needsGptEnrichment);
 
             if (needsGptEnrichment || authorKakaoImportService.isEmpty(kakaoResponse)) {
@@ -223,8 +272,9 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
             AuthorGptEnrichmentService.AuthorEnrichmentResult gptResult =
                     authorGptEnrichmentService.enrichAuthorInfo(author.getName());
 
-            log.info("GPT 응답 받음 - biography: {}, profile: {}, awards: {}",
+            log.info("GPT 응답 받음 - biography: {}, nationality: {}, profile: {}, awards: {}",
                     gptResult.biography() != null ? "있음" : "없음",
+                    gptResult.nationality() != null ? gptResult.nationality() : "없음",
                     gptResult.profile() != null ? "있음" : "없음",
                     gptResult.awards() != null ? gptResult.awards().size() + "개" : "없음");
 
@@ -235,6 +285,15 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
                 if (author.getBiography() == null || author.getBiography().isEmpty()) {
                     author.updateProfile(author.getProfileImageUrl(), gptResult.biography());
                     log.info("biography 업데이트 완료");
+                    anyUpdated = true;
+                }
+            }
+
+            // nationality 업데이트
+            if (gptResult.nationality() != null && !gptResult.nationality().isEmpty()) {
+                if (author.getNationality() == null || author.getNationality().isEmpty()) {
+                    author.updateNationality(gptResult.nationality());
+                    log.info("nationality 업데이트 완료 - {}", gptResult.nationality());
                     anyUpdated = true;
                 }
             }
@@ -321,10 +380,11 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
      * DTO 변환
      */
     private AuthorDetailResponse convertToResponse(Authors author, List<Books> books, List<AuthorAwards> awards) {
-        log.info("=== DTO 변환 시작 - authorId: {}, profileImageUrl: {}, biography: {}, profileJson: {} ===",
+        log.info("=== DTO 변환 시작 - authorId: {}, profileImageUrl: {}, biography: {}, nationality: {}, profileJson: {} ===",
                 author.getId(),
                 author.getProfileImageUrl() != null ? "있음" : "null",
                 author.getBiography() != null ? "있음" : "null",
+                author.getNationality() != null ? author.getNationality() : "null",
                 author.getProfileJson() != null ? "있음" : "null");
 
         // 도서 요약 목록
@@ -367,6 +427,7 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
                 author.getName(),
                 author.getProfileImageUrl(),
                 author.getBiography(),
+                author.getNationality(),
                 bookSummaries,
                 profile,
                 awardList

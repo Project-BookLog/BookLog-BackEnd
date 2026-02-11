@@ -21,6 +21,9 @@ public record AuthorDetailResponse(
         @Schema(description = "작가에 대한 한 줄 소개", example = "대한민국의 대표 소설가")
         String biography,
 
+        @Schema(description = "작가 국적", example = "대한민국")
+        String nationality,
+
         @Schema(description = "해당 작가의 도서 요약 목록")
         List<AuthorBookSummary> books,
 
