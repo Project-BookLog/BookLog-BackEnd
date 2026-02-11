@@ -46,7 +46,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 path.equals("/api/v1/auth/login") ||     // 일반 로그인
                 path.equals("/api/v1/auth/refresh") ||   // 토큰 갱신
                 path.equals("/api/v1/auth/kakao/login") || // 카카오 테스트용
-                path.equals("/api/v1/auth/kakao/redirect"); // 카카오 리다이렉트
+                path.equals("/api/v1/auth/kakao/redirect") || // 카카오 리다이렉트
+                path.equals("/api/v1/auth/callback");  // OAuth2 콜백
     }
 
     @Override
