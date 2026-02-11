@@ -90,8 +90,8 @@ public class GptService {
             // 응답 파싱
             Map<String, String> keywords = parseBookKeywordsResponse(gptResponse);
 
-            log.info("GPT 도서 키워드 분석 완료 - mood: {}, style: {}, immersion: {}",
-                    keywords.get("mood"), keywords.get("style"), keywords.get("immersion"));
+            log.info("GPT 도서 키워드 분석 완료 - genre: {}, mood: {}, style: {}, immersion: {}",
+                    keywords.get("genre"), keywords.get("mood"), keywords.get("style"), keywords.get("immersion"));
             return keywords;
 
         } catch (Exception e) {
@@ -99,6 +99,7 @@ public class GptService {
 
             // 실패 시 기본 키워드 반환
             Map<String, String> defaultKeywords = new HashMap<>();
+            defaultKeywords.put("genre", "일반");
             defaultKeywords.put("mood", "잔잔한");
             defaultKeywords.put("style", "간결한");
             defaultKeywords.put("immersion", "편안한");
@@ -200,7 +201,7 @@ public class GptService {
      */
     private String buildBookAnalysisPrompt(String bookTitle, String author, String publisher) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("다음 도서 정보를 분석하여 분위기, 문체, 몰입도 키워드를 추천해주세요.\n\n");
+        prompt.append("다음 도서 정보를 분석하여 장르, 분위기, 문체, 몰입도 키워드를 추천해주세요.\n\n");
         prompt.append("도서 정보:\n");
         prompt.append("- 제목: ").append(bookTitle).append("\n");
         prompt.append("- 작가: ").append(author).append("\n");
@@ -209,6 +210,7 @@ public class GptService {
         }
 
         prompt.append("\n다음 형식으로 응답해주세요:\n");
+        prompt.append("장르: [소설, 에세이, 자기계발, 인문, 경제경영, SF, 판타지, 추리, 로맨스, 역사, 과학, 예술 중 1개]\n");
         prompt.append("분위기: [따뜻한, 잔잔한, 서늘한, 몽환적인, 유쾌한, 어두운 중 1개]\n");
         prompt.append("문체: [간결한, 화려한, 담백한, 섬세한, 직설적, 은유적 중 1개]\n");
         prompt.append("몰입도: [빠른전개, 느린전개, 긴장감있는, 편안한, 현실적, 환상적, 논리적, 감성적 중 1개]\n");
@@ -228,7 +230,9 @@ public class GptService {
 
             for (String line : lines) {
                 String trimmed = line.trim();
-                if (trimmed.startsWith("분위기:")) {
+                if (trimmed.startsWith("장르:")) {
+                    keywords.put("genre", trimmed.substring(trimmed.indexOf(":") + 1).trim());
+                } else if (trimmed.startsWith("분위기:")) {
                     keywords.put("mood", trimmed.substring(trimmed.indexOf(":") + 1).trim());
                 } else if (trimmed.startsWith("문체:")) {
                     keywords.put("style", trimmed.substring(trimmed.indexOf(":") + 1).trim());
@@ -238,6 +242,7 @@ public class GptService {
             }
 
             // 기본값 설정 (파싱 실패 시)
+            keywords.putIfAbsent("genre", "일반");
             keywords.putIfAbsent("mood", "잔잔한");
             keywords.putIfAbsent("style", "간결한");
             keywords.putIfAbsent("immersion", "편안한");
@@ -246,6 +251,7 @@ public class GptService {
 
         } catch (Exception e) {
             log.error("도서 키워드 응답 파싱 실패: {}", e.getMessage(), e);
+            keywords.put("genre", "일반");
             keywords.put("mood", "잔잔한");
             keywords.put("style", "간결한");
             keywords.put("immersion", "편안한");

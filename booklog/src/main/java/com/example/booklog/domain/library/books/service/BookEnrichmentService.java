@@ -8,13 +8,17 @@ import com.example.booklog.domain.tags.entity.Tags;
 import com.example.booklog.domain.tags.mapping.BookTags;
 import com.example.booklog.domain.tags.repository.BookTagsRepository;
 import com.example.booklog.domain.tags.repository.TagsRepository;
+import com.example.booklog.global.config.GptConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
@@ -30,11 +34,15 @@ import java.util.*;
 @RequiredArgsConstructor
 public class BookEnrichmentService {
 
+    private static final String OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+
     private final BooksRepository booksRepository;
     private final BookTagsRepository bookTagsRepository;
     private final TagsRepository tagsRepository;
     private final ObjectMapper objectMapper;
     private final GptService gptService;
+    private final GptConfig gptConfig;
+    private final RestTemplate restTemplate;
 
     /**
      * 책 정보를 AI 기반으로 확장
@@ -200,6 +208,7 @@ public class BookEnrichmentService {
     /**
      * 상세 취향 분석 생성
      * - 분위기(mood), 문체(style), 몰입도(immersion) 각각 분석
+     * - 태그가 없으면 GPT를 통해 직접 생성
      */
     private String generateTasteAnalysis(Books book) throws JsonProcessingException {
         if (book.getTasteAnalysis() != null) {
@@ -211,6 +220,16 @@ public class BookEnrichmentService {
         // 책의 태그를 카테고리별로 분류
         List<BookTags> bookTags = bookTagsRepository.findAllByBookId(book.getId());
         log.info("책 태그 조회 완료 - bookId: {}, 태그 개수: {}", book.getId(), bookTags.size());
+
+        // 태그가 없으면 GPT를 통해 직접 tasteInfo 생성
+        if (bookTags.isEmpty()) {
+            log.info("태그가 없음 - GPT를 통해 tasteInfo 직접 생성 시도");
+            String gptTasteAnalysis = generateTasteAnalysisWithGpt(book);
+            if (gptTasteAnalysis != null) {
+                return gptTasteAnalysis;
+            }
+            log.warn("GPT tasteInfo 생성 실패 - 기본값 사용");
+        }
 
         Map<TagCategory, List<Tags>> tagsByCategory = new HashMap<>();
         for (BookTags bt : bookTags) {
@@ -252,6 +271,176 @@ public class BookEnrichmentService {
         log.info("취향 분석 생성 완료 - bookId: {}, result: {}", book.getId(), result);
 
         return result;
+    }
+
+    /**
+     * GPT를 통해 책의 tasteInfo 직접 생성
+     */
+    private String generateTasteAnalysisWithGpt(Books book) {
+        try {
+            String authorName = book.getBookAuthors().isEmpty()
+                    ? "알 수 없음"
+                    : book.getBookAuthors().get(0).getAuthor().getName();
+
+            // 사용 가능한 태그 목록 조회
+            List<Tags> allTags = tagsRepository.findAll();
+            StringBuilder moodTags = new StringBuilder();
+            StringBuilder styleTags = new StringBuilder();
+            StringBuilder immersionTags = new StringBuilder();
+
+            for (Tags tag : allTags) {
+                switch (tag.getCategory()) {
+                    case MOOD -> moodTags.append(tag.getName()).append(", ");
+                    case STYLE -> styleTags.append(tag.getName()).append(", ");
+                    case IMMERSION -> immersionTags.append(tag.getName()).append(", ");
+                }
+            }
+
+            String prompt = String.format("""
+                다음 책에 어울리는 취향 태그를 추천해주세요.
+                
+                책 제목: %s
+                작가: %s
+                설명: %s
+                
+                다음 태그 목록에서 각 카테고리별로 가장 어울리는 태그를 1개씩 선택해주세요:
+                
+                분위기(mood): %s
+                문체(style): %s
+                몰입도(immersion): %s
+                
+                반드시 다음 JSON 형식으로만 응답해주세요:
+                {
+                  "mood": "태그명",
+                  "style": "태그명",
+                  "immersion": "태그명"
+                }
+                
+                주의사항:
+                - 태그명은 위에 나열된 것 중에서만 선택
+                - JSON 형식을 정확히 지켜주세요
+                - 다른 설명 없이 JSON만 응답
+                """,
+                book.getTitle(),
+                authorName,
+                book.getDescription() != null ? book.getDescription().substring(0, Math.min(500, book.getDescription().length())) : "설명 없음",
+                moodTags.toString(),
+                styleTags.toString(),
+                immersionTags.toString()
+            );
+
+            String gptResponse = callGptApi(prompt);
+            if (gptResponse == null || gptResponse.isEmpty()) {
+                log.warn("GPT 응답이 비어있음");
+                return null;
+            }
+
+            // JSON 파싱
+            String jsonContent = extractJsonFromResponse(gptResponse);
+            JsonNode root = objectMapper.readTree(jsonContent);
+
+            String mood = root.path("mood").asText(null);
+            String style = root.path("style").asText(null);
+            String immersion = root.path("immersion").asText(null);
+
+            if (mood == null || style == null || immersion == null) {
+                log.warn("GPT 응답에서 필수 필드 누락");
+                return null;
+            }
+
+            // tasteAnalysis JSON 생성
+            Map<String, Map<String, String>> analysis = new HashMap<>();
+            analysis.put("mood", Map.of("title", "#" + mood, "description", mood + " 분위기가 독자를 깊이 사로잡습니다."));
+            analysis.put("style", Map.of("title", "#" + style, "description", style + " 문체로 이야기를 풀어나갑니다."));
+            analysis.put("immersion", Map.of("title", "#" + immersion, "description", immersion + " 몰입감으로 페이지를 넘기게 만듭니다."));
+
+            String result = objectMapper.writeValueAsString(analysis);
+            log.info("GPT tasteInfo 생성 완료 - bookId: {}, result: {}", book.getId(), result);
+            return result;
+
+        } catch (Exception e) {
+            log.error("GPT tasteInfo 생성 실패 - bookId: {}, error: {}", book.getId(), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * GPT API 직접 호출
+     */
+    private String callGptApi(String prompt) {
+        try {
+            String apiKey = gptConfig.getSecretKey();
+            if (apiKey == null || apiKey.isEmpty() || apiKey.equals("dummy-key-for-development")) {
+                log.warn("GPT API 키가 설정되지 않음");
+                return null;
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", gptConfig.getModel());
+            requestBody.put("messages", List.of(
+                    Map.of("role", "system", "content", "당신은 책 취향 분석 전문가입니다. 책의 정보를 분석하여 적절한 태그를 추천합니다."),
+                    Map.of("role", "user", "content", prompt)
+            ));
+            requestBody.put("temperature", 0.3);
+            requestBody.put("max_tokens", 500);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    OPENAI_API_URL,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return extractContentFromGptResponse(response.getBody());
+            } else {
+                log.error("GPT API 호출 실패: {}", response.getStatusCode());
+                return null;
+            }
+
+        } catch (Exception e) {
+            log.error("GPT API 호출 중 오류 발생: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * GPT API 응답에서 content 추출
+     */
+    private String extractContentFromGptResponse(String responseBody) {
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode choices = root.path("choices");
+            if (choices.isArray() && !choices.isEmpty()) {
+                return choices.get(0).path("message").path("content").asText();
+            }
+            log.error("GPT 응답 형식 오류");
+            return null;
+        } catch (Exception e) {
+            log.error("GPT 응답 파싱 실패: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * JSON 추출 (코드 블록 제거)
+     */
+    private String extractJsonFromResponse(String response) {
+        String content = response.trim();
+        if (content.startsWith("```json")) {
+            content = content.substring("```json".length());
+        } else if (content.startsWith("```")) {
+            content = content.substring("```".length());
+        }
+        if (content.endsWith("```")) {
+            content = content.substring(0, content.length() - 3);
+        }
+        return content.trim();
     }
 
     /**

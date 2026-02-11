@@ -40,6 +40,10 @@ public class Authors extends BaseEntity {
     @Column(name = "profile_json", columnDefinition = "TEXT")
     private String profileJson; // JSON 형식으로 education, debut, birthDate, occupations 저장
 
+    // 작가 국적 (GPT로 보완)
+    @Column(name = "nationality", length = 50)
+    private String nationality;
+
     // 보완 시도 시간 (null이면 아직 보완 시도 안 함)
     @Column(name = "enrichment_attempted_at")
     private LocalDateTime enrichmentAttemptedAt;
@@ -49,13 +53,14 @@ public class Authors extends BaseEntity {
     private Boolean enrichmentSucceeded;
 
     @Builder
-    public Authors(String name, String profileImageUrl, String biography, String wikidataId, String wikidataRawJson, String profileJson) {
+    public Authors(String name, String profileImageUrl, String biography, String wikidataId, String wikidataRawJson, String profileJson, String nationality) {
         this.name = name;
         this.profileImageUrl = profileImageUrl;
         this.biography = biography;
         this.wikidataId = wikidataId;
         this.wikidataRawJson = wikidataRawJson;
         this.profileJson = profileJson;
+        this.nationality = nationality;
     }
 
     public static Authors ofName(String name) {
@@ -71,6 +76,10 @@ public class Authors extends BaseEntity {
 
     public void updateProfileJson(String profileJson) {
         this.profileJson = profileJson;
+    }
+
+    public void updateNationality(String nationality) {
+        this.nationality = nationality;
     }
 
     public boolean hasWikidataId() {

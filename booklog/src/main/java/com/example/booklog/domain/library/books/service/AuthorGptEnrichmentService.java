@@ -60,6 +60,7 @@ public class AuthorGptEnrichmentService {
             
             {
               "biography": "작가에 대한 한 줄 소개 (예: 대한민국의 대표 소설가, 시인)",
+              "nationality": "작가의 국적 (예: 대한민국, 미국, 일본)",
               "profile": {
                 "education": ["학력1", "학력2"],
                 "debut": "데뷔작 정보 (예: 붉은 닭(1994))",
@@ -76,6 +77,7 @@ public class AuthorGptEnrichmentService {
             }
             
             - biography는 한 문장으로 간결하게 작성
+            - nationality는 국적을 명확히 작성 (예: 대한민국, 미국, 일본, 영국 등)
             - profile은 가능한 정보만 포함 (없으면 빈 배열 또는 null)
             - awards는 최신순으로 정렬 (최대 10개)
             - 정보를 찾을 수 없으면 해당 필드를 null 또는 빈 배열로 설정
@@ -155,6 +157,7 @@ public class AuthorGptEnrichmentService {
             JsonNode root = objectMapper.readTree(jsonContent);
 
             String biography = root.path("biography").asText(null);
+            String nationality = root.path("nationality").asText(null);
 
             // Profile 파싱
             JsonNode profileNode = root.path("profile");
@@ -183,7 +186,7 @@ public class AuthorGptEnrichmentService {
                 }
             }
 
-            return new AuthorEnrichmentResult(biography, profile, awards);
+            return new AuthorEnrichmentResult(biography, nationality, profile, awards);
 
         } catch (Exception e) {
             log.error("GPT 응답 파싱 실패 - author: {}, response: {}, error: {}",
@@ -232,7 +235,7 @@ public class AuthorGptEnrichmentService {
      * 빈 결과 생성
      */
     private AuthorEnrichmentResult createEmptyResult() {
-        return new AuthorEnrichmentResult(null, null, List.of());
+        return new AuthorEnrichmentResult(null, null, null, List.of());
     }
 
     /**
@@ -240,6 +243,7 @@ public class AuthorGptEnrichmentService {
      */
     public record AuthorEnrichmentResult(
             String biography,
+            String nationality,
             ProfileInfo profile,
             List<AwardInfo> awards
     ) {}
