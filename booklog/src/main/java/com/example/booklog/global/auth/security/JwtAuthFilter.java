@@ -28,13 +28,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
-        return path.startsWith("/oauth2/") ||
-                path.startsWith("/login/oauth2/") ||
-                path.startsWith("/api/v1/auth/") ||
-                path.startsWith("/swagger-ui/") ||
-                path.startsWith("/v3/api-docs") ||
-                path.equals("/health") ||
-                path.equals("/");
+
+        // 1. 공통 및 문서 관련 (인증 불필요)
+        if (path.equals("/") || path.equals("/health") ||
+                path.startsWith("/swagger-ui/") || path.startsWith("/v3/api-docs")) {
+            return true;
+        }
+
+        // 2. OAuth2 내부 처리 경로 (인증 불필요)
+        if (path.startsWith("/oauth2/") || path.startsWith("/login/oauth2/")) {
+            return true;
+        }
+
+        // 3. AuthController 중 '인증이 필요 없는' 특정 경로들
+        // startsWith("/api/v1/auth/")를 지우고 아래처럼 상세하게 적습니다.
+        return path.equals("/api/v1/auth/sign-up") ||   // 회원가입
+                path.equals("/api/v1/auth/login") ||     // 일반 로그인
+                path.equals("/api/v1/auth/refresh") ||   // 토큰 갱신
+                path.equals("/api/v1/auth/kakao/login") || // 카카오 테스트용
+                path.equals("/api/v1/auth/kakao/redirect"); // 카카오 리다이렉트
     }
 
     @Override

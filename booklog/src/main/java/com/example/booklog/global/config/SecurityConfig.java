@@ -45,6 +45,8 @@ public class SecurityConfig {
             "/",
             "/health",
             "/api/v1/auth/**",
+            "/auth/kakao/redirect",
+            "/auth/callback",
             "/api/v1/books/**",  // 책 조회 API (공개)
             "/swagger-ui/**",
             "/swagger-resources/**",
