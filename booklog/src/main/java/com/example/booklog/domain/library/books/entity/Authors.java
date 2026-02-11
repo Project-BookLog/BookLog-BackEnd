@@ -34,13 +34,18 @@ public class Authors extends BaseEntity {
     @Column(name = "wikidata_raw_json", columnDefinition = "TEXT")
     private String wikidataRawJson;
 
+    // GPT로 보완된 프로필 정보
+    @Column(name = "profile_json", columnDefinition = "TEXT")
+    private String profileJson; // JSON 형식으로 education, debut, birthDate, occupations 저장
+
     @Builder
-    public Authors(String name, String profileImageUrl, String biography, String wikidataId, String wikidataRawJson) {
+    public Authors(String name, String profileImageUrl, String biography, String wikidataId, String wikidataRawJson, String profileJson) {
         this.name = name;
         this.profileImageUrl = profileImageUrl;
         this.biography = biography;
         this.wikidataId = wikidataId;
         this.wikidataRawJson = wikidataRawJson;
+        this.profileJson = profileJson;
     }
 
     public static Authors ofName(String name) {
@@ -54,6 +59,10 @@ public class Authors extends BaseEntity {
         this.biography = biography;
     }
 
+    public void updateProfileJson(String profileJson) {
+        this.profileJson = profileJson;
+    }
+
     public boolean hasWikidataId() {
         return this.wikidataId != null && !this.wikidataId.isBlank();
     }
@@ -63,6 +72,11 @@ public class Authors extends BaseEntity {
 
         this.wikidataId = enrichment.wikidataQid();
         this.wikidataRawJson = enrichment.rawJson();
+
+        // profileImageUrl이 없으면 위키데이터의 이미지로 채움
+        if ((this.profileImageUrl == null || this.profileImageUrl.isBlank()) && enrichment.profileImageUrl() != null) {
+            this.profileImageUrl = enrichment.profileImageUrl();
+        }
 
         // biography가 없으면 bio로 채움
         if ((this.biography == null || this.biography.isBlank()) && enrichment.bio() != null) {

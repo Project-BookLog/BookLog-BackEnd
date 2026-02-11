@@ -58,12 +58,25 @@ public interface BooksRepository extends JpaRepository<Books, Long> {
      * @return 도서 목록 (출판일 최신순)
      */
     @Query("SELECT DISTINCT b FROM Books b " +
-           "JOIN FETCH b.bookAuthors ba " +
-           "JOIN FETCH ba.author a " +
+           "LEFT JOIN FETCH b.bookAuthors ba " +
+           "LEFT JOIN FETCH ba.author a " +
            "WHERE a.id IN :authorIds " +
            "ORDER BY b.publishedDate DESC NULLS LAST, b.id DESC")
     @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
     List<Books> findBooksByAuthorIds(@Param("authorIds") List<Long> authorIds);
+
+    /**
+     * 태그가 없는 책 조회
+     * LEFT JOIN으로 book_tags와 조인하여 book_tags가 null인 책만 조회
+     *
+     * @return 태그가 없는 책 목록
+     */
+    @Query("SELECT DISTINCT b FROM Books b " +
+           "LEFT JOIN FETCH b.bookAuthors ba " +
+           "LEFT JOIN FETCH ba.author a " +
+           "WHERE NOT EXISTS (SELECT 1 FROM BookTags bt WHERE bt.book.id = b.id)")
+    @QueryHints(@QueryHint(name = "hibernate.query.passDistinctThrough", value = "false"))
+    List<Books> findBooksWithoutTags();
 
     /**
      * 특정 작가의 도서 개수 확인 (디버깅용)
