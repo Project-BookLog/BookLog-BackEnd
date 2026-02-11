@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit;
  * - 작가 검색: /api/v1/search/authors
  * - 검색어 저장: /api/v1/search/keywords (POST)
  * - 최근 검색어 조회: /api/v1/search/recent (GET)
+ * - 최근 검색어 단건 삭제: /api/v1/search/recent (DELETE)
+ * - 최근 검색어 전체 삭제: /api/v1/search/recent/all (DELETE)
  * - 추천 검색어 조회: /api/v1/search/recommendations (GET)
  */
 @Tag(name = "Search", description = "검색 API")
@@ -221,11 +223,74 @@ public class SearchController {
      * @param userDetails 인증된 사용자 정보 (JWT 토큰에서 추출)
      * @return 최근 검색어 목록
      */
+    @Operation(
+            summary = "최근 검색어 조회",
+            description = "사용자의 최근 검색어 목록을 조회합니다. 최신순으로 정렬되며 최대 10개까지 반환됩니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = RecentSearchResponse.class))
+            )
+    })
     @GetMapping("/recent")
     public RecentSearchResponse getRecentSearches(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return searchKeywordService.getRecentSearches(userDetails.getUserId());
+    }
+
+    /**
+     * 최근 검색어 단건 삭제 API
+     * DELETE /api/v1/search/recent?keyword={검색어}
+     *
+     * [호출 시점]
+     * - 최근 검색어 목록에서 특정 검색어의 X 버튼 클릭 시
+     *
+     * @param userDetails 인증된 사용자 정보 (JWT 토큰에서 추출)
+     * @param keyword 삭제할 검색어
+     */
+    @Operation(
+            summary = "최근 검색어 단건 삭제",
+            description = "최근 검색어 목록에서 특정 검색어를 삭제합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "삭제 성공"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (검색어 누락)")
+    })
+    @DeleteMapping("/recent")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSearchKeyword(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Parameter(description = "삭제할 검색어", required = true)
+            @RequestParam String keyword
+    ) {
+        searchKeywordService.deleteSearchKeyword(userDetails.getUserId(), keyword);
+    }
+
+    /**
+     * 최근 검색어 전체 삭제 API
+     * DELETE /api/v1/search/recent/all
+     *
+     * [호출 시점]
+     * - 최근 검색어 목록에서 "전체 삭제" 버튼 클릭 시
+     *
+     * @param userDetails 인증된 사용자 정보 (JWT 토큰에서 추출)
+     */
+    @Operation(
+            summary = "최근 검색어 전체 삭제",
+            description = "사용자의 모든 최근 검색어를 삭제합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "삭제 성공")
+    })
+    @DeleteMapping("/recent/all")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAllSearchKeywords(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        searchKeywordService.deleteAllSearchKeywords(userDetails.getUserId());
     }
 
     /**

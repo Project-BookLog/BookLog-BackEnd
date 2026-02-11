@@ -117,6 +117,31 @@ public class SearchKeywordService {
     }
 
     /**
+     * 최근 검색어 단건 삭제
+     *
+     * @param userId 사용자 ID
+     * @param keyword 삭제할 검색어
+     */
+    @Transactional
+    public void deleteSearchKeyword(Long userId, String keyword) {
+        // 검색어 유효성 검증
+        String trimmedKeyword = validateAndTrimKeyword(keyword);
+
+        // 검색어 삭제
+        searchKeywordRepository.deleteByUserIdAndKeyword(userId, trimmedKeyword);
+    }
+
+    /**
+     * 최근 검색어 전체 삭제
+     *
+     * @param userId 사용자 ID
+     */
+    @Transactional
+    public void deleteAllSearchKeywords(Long userId) {
+        searchKeywordRepository.deleteAllByUserId(userId);
+    }
+
+    /**
      * 검색어 유효성 검증 및 공백 제거
      */
     private String validateAndTrimKeyword(String keyword) {
