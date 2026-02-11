@@ -51,8 +51,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         log.info("생성된 리프레시 토큰 (앞 30자): {}", refreshToken.substring(0, Math.min(30, refreshToken.length())));
 
         // Refresh Token DB에 저장
-        refreshTokenRepository.findByEmail(email)
-                .ifPresent(refreshTokenRepository::delete);
+        refreshTokenRepository.deleteAllByEmail(email);
 
         RefreshToken refreshTokenEntity = RefreshToken.builder()
                 .token(refreshToken)
