@@ -127,9 +127,10 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
 
     /**
      * 작가 정보 보완 필요 여부 확인
+     * - 필수 정보(biography, profileImage, profileJson)가 없으면 무조건 보완 시도
      */
     private boolean needsEnrichment(Authors author) {
-        // biography, profileImageUrl, profileJson이 없거나, 도서가 없거나, 수상경력이 없으면 보완 필요
+        // 필수 정보가 있는지 확인
         boolean hasNoBiography = author.getBiography() == null || author.getBiography().isEmpty();
         boolean hasNoProfileImage = author.getProfileImageUrl() == null || author.getProfileImageUrl().isEmpty();
         boolean hasNoProfileJson = author.getProfileJson() == null || author.getProfileJson().isEmpty();
@@ -137,13 +138,13 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
         List<Books> books = booksRepository.findBooksByAuthorId(author.getId());
         boolean hasNoBooks = books.isEmpty();
 
-        List<AuthorAwards> awards = authorRewardRepository.findAllByAuthor_Id(author.getId());
-        boolean hasNoAwards = awards.isEmpty();
+        boolean hasIncompleteData = hasNoBiography || hasNoProfileImage || hasNoProfileJson || hasNoBooks;
 
-        log.info("작가 정보 상태 체크 - authorId: {}, hasNoBiography: {}, hasNoProfileImage: {}, hasNoProfileJson: {}, hasNoBooks: {}, hasNoAwards: {}",
-                author.getId(), hasNoBiography, hasNoProfileImage, hasNoProfileJson, hasNoBooks, hasNoAwards);
+        log.info("작가 정보 상태 체크 - authorId: {}, hasNoBiography: {}, hasNoProfileImage: {}, hasNoProfileJson: {}, hasNoBooks: {}",
+                author.getId(), hasNoBiography, hasNoProfileImage, hasNoProfileJson, hasNoBooks);
 
-        return hasNoBiography || hasNoProfileImage || hasNoProfileJson || hasNoBooks || hasNoAwards;
+        // 데이터가 불완전하면 무조건 보완 시도
+        return hasIncompleteData;
     }
 
     /**
@@ -153,6 +154,8 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
      * 3. 카카오 API가 비어있거나 부족하면 GPT로 보완
      */
     private void enrichAuthorData(Authors author) {
+        boolean enrichmentSucceeded = false;
+
         try {
             // 1. 위키데이터로 프로필 이미지 보완 (wikidataId가 없거나 프로필 이미지가 없으면)
             boolean needsWikidataEnrichment = !author.hasWikidataId() ||
@@ -187,22 +190,33 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
 
             if (needsGptEnrichment || authorKakaoImportService.isEmpty(kakaoResponse)) {
                 log.info("GPT를 통한 작가 정보 보완 시작 - author: {}", author.getName());
-                enrichWithGpt(author);
+                enrichmentSucceeded = enrichWithGpt(author);
             } else {
                 log.info("GPT 보완 불필요 - author: {}", author.getName());
+                enrichmentSucceeded = true;
             }
 
         } catch (Exception e) {
             log.error("작가 정보 보완 실패 - authorId: {}, error: {}", author.getId(), e.getMessage(), e);
-            // 실패해도 기본 정보는 반환
+            enrichmentSucceeded = false;
+        } finally {
+            // 보완 시도 결과 기록
+            if (enrichmentSucceeded) {
+                author.markEnrichmentSucceeded();
+            } else {
+                author.markEnrichmentFailed();
+            }
+            authorsRepository.save(author);
+            log.info("보완 시도 결과 기록 - authorId: {}, succeeded: {}", author.getId(), enrichmentSucceeded);
         }
     }
 
 
     /**
      * GPT로 작가 정보 보완
+     * @return true: 보완 성공 (최소 하나의 정보가 업데이트됨), false: 실패
      */
-    private void enrichWithGpt(Authors author) {
+    private boolean enrichWithGpt(Authors author) {
         try {
             log.info("=== GPT 작가 정보 보완 시작 - author: {} ===", author.getName());
 
@@ -214,11 +228,14 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
                     gptResult.profile() != null ? "있음" : "없음",
                     gptResult.awards() != null ? gptResult.awards().size() + "개" : "없음");
 
+            boolean anyUpdated = false;
+
             // biography 업데이트
             if (gptResult.biography() != null && !gptResult.biography().isEmpty()) {
                 if (author.getBiography() == null || author.getBiography().isEmpty()) {
                     author.updateProfile(author.getProfileImageUrl(), gptResult.biography());
                     log.info("biography 업데이트 완료");
+                    anyUpdated = true;
                 }
             }
 
@@ -226,8 +243,11 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
             if (gptResult.profile() != null) {
                 try {
                     String profileJson = objectMapper.writeValueAsString(gptResult.profile());
-                    author.updateProfileJson(profileJson);
-                    log.info("프로필 정보 JSON 저장 완료 - profileJson: {}", profileJson);
+                    if (author.getProfileJson() == null || author.getProfileJson().isEmpty()) {
+                        author.updateProfileJson(profileJson);
+                        log.info("프로필 정보 JSON 저장 완료 - profileJson: {}", profileJson);
+                        anyUpdated = true;
+                    }
                 } catch (Exception e) {
                     log.error("프로필 정보 JSON 변환 실패", e);
                 }
@@ -249,14 +269,18 @@ public class AuthorQueryServiceImpl implements AuthorQueryService {
 
                     authorRewardRepository.saveAll(newAwards);
                     log.info("수상경력 저장 완료 - 개수: {}", newAwards.size());
+                    anyUpdated = true;
                 }
             }
 
             authorsRepository.save(author);
-            log.info("=== GPT 작가 정보 보완 완료 - author: {} ===", author.getName());
+            log.info("=== GPT 작가 정보 보완 완료 - author: {}, anyUpdated: {} ===", author.getName(), anyUpdated);
+
+            return anyUpdated;
 
         } catch (Exception e) {
             log.error("GPT 작가 정보 보완 실패 - author: {}, error: {}", author.getName(), e.getMessage(), e);
+            return false;
         }
     }
 
