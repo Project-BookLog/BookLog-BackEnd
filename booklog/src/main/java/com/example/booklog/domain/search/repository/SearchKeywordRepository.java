@@ -57,5 +57,12 @@ public interface SearchKeywordRepository extends JpaRepository<SearchKeyword, Lo
     @Modifying
     @Query("DELETE FROM SearchKeyword sk WHERE sk.user.id = :userId AND sk.keyword = :keyword")
     void deleteByUserIdAndKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
+
+    /**
+     * 사용자의 모든 검색어 삭제
+     */
+    @Modifying
+    @Query("DELETE FROM SearchKeyword sk WHERE sk.user.id = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }
 
