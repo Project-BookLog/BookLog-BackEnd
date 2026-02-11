@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "authors") // 추후 수정될 가능성이 있습니다. (작가 정보 찾는 로직)
 @Getter
@@ -37,6 +39,14 @@ public class Authors extends BaseEntity {
     // GPT로 보완된 프로필 정보
     @Column(name = "profile_json", columnDefinition = "TEXT")
     private String profileJson; // JSON 형식으로 education, debut, birthDate, occupations 저장
+
+    // 보완 시도 시간 (null이면 아직 보완 시도 안 함)
+    @Column(name = "enrichment_attempted_at")
+    private LocalDateTime enrichmentAttemptedAt;
+
+    // 보완 성공 여부 (true: 성공, false: 실패, null: 시도 안 함)
+    @Column(name = "enrichment_succeeded")
+    private Boolean enrichmentSucceeded;
 
     @Builder
     public Authors(String name, String profileImageUrl, String biography, String wikidataId, String wikidataRawJson, String profileJson) {
@@ -83,5 +93,37 @@ public class Authors extends BaseEntity {
             this.biography = enrichment.bio();
         }
     }
-}
 
+    /**
+     * 보완 시도 기록 (성공)
+     */
+    public void markEnrichmentSucceeded() {
+        this.enrichmentAttemptedAt = LocalDateTime.now();
+        this.enrichmentSucceeded = true;
+    }
+
+    /**
+     * 보완 시도 기록 (실패)
+     */
+    public void markEnrichmentFailed() {
+        this.enrichmentAttemptedAt = LocalDateTime.now();
+        this.enrichmentSucceeded = false;
+    }
+
+    /**
+     * 보완 재시도가 필요한지 확인
+     * - 아직 시도 안 한 경우: true
+     * - 실패한 지 7일 지난 경우: true
+     * - 그 외: false
+     */
+    public boolean shouldRetryEnrichment() {
+        if (enrichmentAttemptedAt == null) {
+            return true;
+        }
+        if (Boolean.FALSE.equals(enrichmentSucceeded)) {
+            // 실패한 지 7일 지났으면 재시도
+            return enrichmentAttemptedAt.isBefore(LocalDateTime.now().minusDays(7));
+        }
+        return false;
+    }
+}
