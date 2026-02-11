@@ -8,6 +8,10 @@ import com.example.booklog.global.auth.service.AuthCommandService;
 import com.example.booklog.global.auth.service.AuthQueryService;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -66,10 +70,43 @@ public class AuthController {
         );
     }
 
-    // 카카오 소셜 로그인 (OAuth2 리다이렉트)
-    @GetMapping("/kakao/login")
-    @Operation(summary = "카카오 로그인", description = "카카오 OAuth2 로그인 페이지로 리다이렉트합니다.")
-    public void kakaoLogin(HttpServletResponse response) throws IOException {
+    // 카카오 소셜 로그인 (POST 방식 - Swagger 테스트용)
+    @PostMapping("/kakao/login")
+    @Operation(
+            summary = "카카오 소셜 로그인",
+            description = """
+                    카카오 액세스 토큰으로 로그인하여 JWT 토큰을 발급받습니다.
+                    
+                    **[Request]**
+                    - kakaoAccessToken: 카카오에서 발급받은 액세스 토큰
+                    
+                    **[Response]**
+                    - accessToken: JWT 액세스 토큰
+                    - refreshToken: JWT 리프레시 토큰
+                    - tokenType: Bearer
+                    - expiresIn: 만료 시간 (초)
+                    
+                    **[카카오 액세스 토큰 발급 방법]**
+                    1. 카카오 개발자 도구: https://developers.kakao.com/tool/rest-api/open/get/v2-user-me
+                    2. 액세스 토큰 발급 후 아래 Request Body에 입력
+                    """
+    )
+    public ApiResponse<AuthResDTO.LoginDTO> kakaoLogin(
+            @RequestBody @Valid AuthReqDTO.KakaoLoginDTO dto
+    ) {
+        return ApiResponse.onSuccess(
+                AuthSuccessCode.LOGIN_SUCCESS,
+                authQueryService.kakaoLogin(dto)
+        );
+    }
+
+    // 카카오 OAuth2 리다이렉트 (프론트엔드용)
+    @GetMapping("/kakao/redirect")
+    @Operation(
+            summary = "카카오 OAuth2 리다이렉트 (프론트엔드용)",
+            description = "카카오 로그인 페이지로 리다이렉트합니다. 프론트엔드에서 window.location.href로 호출하세요."
+    )
+    public void kakaoRedirect(HttpServletResponse response) throws IOException {
         String redirectUrl = serverDomain + "/oauth2/authorization/kakao";
         response.sendRedirect(redirectUrl);
     }

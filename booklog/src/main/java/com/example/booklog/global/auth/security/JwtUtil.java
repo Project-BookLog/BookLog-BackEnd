@@ -35,12 +35,12 @@ public class JwtUtil {
 
     // AccessToken 생성
     public String createAccessToken(CustomUserDetails user) {
-        return createToken(user, accessExpiration);
+        return createToken(user, accessExpiration, "access");
     }
 
     // RefreshToken 생성
     public String createRefreshToken(CustomUserDetails user) {
-        return createToken(user, refreshExpiration);
+        return createToken(user, refreshExpiration, "refresh");
     }
 
     // OAuth2 로그인용 AccessToken 생성 (이메일로)
@@ -105,7 +105,7 @@ public class JwtUtil {
     }
 
     // 토큰 생성
-    private String createToken(CustomUserDetails user, Duration expiration) {
+    private String createToken(CustomUserDetails user, Duration expiration, String tokenType) {
         Instant now = Instant.now();
 
         // 인가 정보
@@ -115,6 +115,7 @@ public class JwtUtil {
 
         return Jwts.builder()
                 .subject(user.getUsername()) // User 이메일을 Subject로
+                .claim("type", tokenType) // 토큰 타입 (access/refresh)
                 .claim("role", authorities)
                 .claim("email", user.getUsername())
                 .issuedAt(Date.from(now)) // 언제 발급한지

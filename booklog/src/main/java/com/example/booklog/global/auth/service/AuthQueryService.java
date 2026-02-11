@@ -9,4 +9,6 @@ public interface AuthQueryService {
     AuthResDTO.LoginDTO login(AuthReqDTO.@Valid LoginDTO dto);
 
     AuthResDTO.LoginDTO refreshToken(AuthReqDTO.@Valid RefreshTokenDTO dto);
+
+    AuthResDTO.LoginDTO kakaoLogin(AuthReqDTO.@Valid KakaoLoginDTO dto);
 }

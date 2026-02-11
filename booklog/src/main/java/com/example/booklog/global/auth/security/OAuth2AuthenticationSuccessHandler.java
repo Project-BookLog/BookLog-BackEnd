@@ -40,11 +40,20 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         log.info("OAuth2 로그인 성공: userId={}, email={}", userId, email);
 
-        // JWT 토큰 생성
-        String accessToken = jwtUtil.generateAccessToken(email);
-        String refreshToken = jwtUtil.generateRefreshToken(email);
+        // CustomUserDetails 생성 (role 정보 포함)
+        CustomUserDetails userDetails = new CustomUserDetails(oAuth2User.getAccount());
+
+        // JWT 토큰 생성 (issuedAt 포함, 매번 다른 토큰 생성)
+        String accessToken = jwtUtil.createAccessToken(userDetails);
+        String refreshToken = jwtUtil.createRefreshToken(userDetails);
+
+        log.info("생성된 액세스 토큰 (앞 30자): {}", accessToken.substring(0, Math.min(30, accessToken.length())));
+        log.info("생성된 리프레시 토큰 (앞 30자): {}", refreshToken.substring(0, Math.min(30, refreshToken.length())));
 
         // Refresh Token DB에 저장
+        refreshTokenRepository.findByEmail(email)
+                .ifPresent(refreshTokenRepository::delete);
+
         RefreshToken refreshTokenEntity = RefreshToken.builder()
                 .token(refreshToken)
                 .email(email)

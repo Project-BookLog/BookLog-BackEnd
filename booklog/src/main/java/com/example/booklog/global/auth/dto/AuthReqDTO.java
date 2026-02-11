@@ -56,4 +56,12 @@ public class AuthReqDTO {
             @Schema(description = "비밀번호 (인앱 로그인 사용자만 필수, 소셜 로그인은 null 또는 빈 문자열 가능)", example = "Test1234!@")
             String password
     ) {}
+
+    // 카카오 소셜 로그인 (테스트용)
+    @Schema(name = "AuthKakaoLoginRequest", description = "카카오 소셜 로그인 테스트 요청")
+    public record KakaoLoginDTO(
+            @NotBlank(message = "카카오 액세스 토큰을 입력해주세요.")
+            @Schema(description = "카카오 액세스 토큰", example = "kakao_access_token_here")
+            String kakaoAccessToken
+    ) {}
 }
