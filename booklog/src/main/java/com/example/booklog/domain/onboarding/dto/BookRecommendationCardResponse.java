@@ -21,6 +21,11 @@ public class BookRecommendationCardResponse {
     private Long bookId;
 
     /**
+     * 카드 타이틀 (예: "작가", "장르", "분위기")
+     */
+    private String title;
+
+    /**
      * 도서 제목
      */
     private String bookTitle;

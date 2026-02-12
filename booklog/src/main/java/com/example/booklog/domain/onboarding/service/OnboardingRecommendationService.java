@@ -171,7 +171,7 @@ public class OnboardingRecommendationService {
 
                 if (!authorInfo.isEmpty()) {
                     BookRecommendationCardResponse card = generateLibraryBasedCard(
-                            book.getTitle(), authorInfo, recentSearches);
+                            book.getTitle(), authorInfo, recentSearches, "작가");
                     if (card != null) {
                         books.add(card);
                     }
@@ -208,7 +208,7 @@ public class OnboardingRecommendationService {
 
                 if (!authorInfo.isEmpty()) {
                     BookRecommendationCardResponse card = generateLibraryBasedCard(
-                            book.getTitle(), authorInfo, recentSearches);
+                            book.getTitle(), authorInfo, recentSearches, "장르");
                     if (card != null) {
                         books.add(card);
                     }
@@ -245,7 +245,7 @@ public class OnboardingRecommendationService {
 
                 if (!authorInfo.isEmpty()) {
                     BookRecommendationCardResponse card = generateLibraryBasedCard(
-                            book.getTitle(), authorInfo, recentSearches);
+                            book.getTitle(), authorInfo, recentSearches, "분위기");
                     if (card != null) {
                         books.add(card);
                     }
@@ -318,7 +318,7 @@ public class OnboardingRecommendationService {
                 // 2개의 도서 추천
                 for (int i = 0; i < 2; i++) {
                     BookRecommendationCardResponse card = generateOnboardingBasedCard(
-                        criteria, recentSearches, profile);
+                        criteria, recentSearches, profile, "분위기");
                     if (card != null) {
                         books.add(card);
                     }
@@ -366,7 +366,7 @@ public class OnboardingRecommendationService {
                 // 2개의 도서 추천
                 for (int i = 0; i < 2; i++) {
                     BookRecommendationCardResponse card = generateOnboardingBasedCard(
-                        criteria, recentSearches, profile);
+                        criteria, recentSearches, profile, "문체");
                     if (card != null) {
                         books.add(card);
                     }
@@ -408,7 +408,7 @@ public class OnboardingRecommendationService {
                 // 2개의 도서 추천
                 for (int i = 0; i < 2; i++) {
                     BookRecommendationCardResponse card = generateOnboardingBasedCard(
-                        criteria, recentSearches, profile);
+                        criteria, recentSearches, profile, "몰입도");
                     if (card != null) {
                         books.add(card);
                     }
@@ -432,7 +432,8 @@ public class OnboardingRecommendationService {
     private BookRecommendationCardResponse generateLibraryBasedCard(
             String bookTitle,
             String authorInfo,
-            String recentSearches) {
+            String recentSearches,
+            String title) {
 
         // GPT 호출 - 서재 도서 기반 유사 도서 추천
         GptRecommendationRequest gptRequest = GptRecommendationRequest.builder()
@@ -473,6 +474,7 @@ public class OnboardingRecommendationService {
 
         return BookRecommendationCardResponse.builder()
                 .bookId(bookId)
+                .title(title)
                 .bookTitle(recommendedBook.getTitle())
                 .author(recommendedAuthor)
                 .publisher(recommendedBook.getPublisher())
@@ -500,48 +502,27 @@ public class OnboardingRecommendationService {
 
             List<Books> popularBooks = booksRepository.findAll(pageRequest).getContent();
 
-            List<BookRecommendationCardResponse> allRecommendations = popularBooks.stream()
-                    .map(book -> {
-                        String authorInfo = book.getBookAuthors().stream()
-                                .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR)
-                                .map(ba -> ba.getAuthor().getName())
-                                .collect(Collectors.joining(", "));
-
-                        String author = authorInfo.isEmpty() ? "저자 미상" : authorInfo;
-
-                        // GPT를 통한 키워드 분석
-                        Map<String, String> keywords = gptService.analyzeBookKeywords(
-                                book.getTitle(),
-                                author,
-                                book.getPublisherName()
-                        );
-
-                        return BookRecommendationCardResponse.builder()
-                                .bookId(book.getId())
-                                .bookTitle(book.getTitle())
-                                .author(author)
-                                .publisher(book.getPublisherName())
-                                .thumbnailUrl(book.getThumbnailUrl())
-                                .recommendationSourceField("popular_ranking")
-                                .recommendationSourceValue("최신 인기 도서")
-                                // 인기 도서 기반(서재/온보딩 없음): 작가, 장르, 분위기
-                                .keyword1(author) // 작가
-                                .keyword2(keywords.get("genre") != null ? keywords.get("genre") : "장르 미상") // 장르
-                                .keyword3(keywords.get("mood")) // 분위기
-                                // 하위 호환성
-                                .moodKeyword(keywords.get("mood"))
-                                .styleKeyword(keywords.get("style"))
-                                .immersionKeyword(keywords.get("immersion"))
-                                .build();
-                    })
+            // 작가 섹션 (0-1번 책)
+            List<BookRecommendationCardResponse> authorBooks = popularBooks.stream()
+                    .limit(2)
+                    .map(book -> buildPopularBookCard(book, "작가"))
                     .toList();
 
-            // 3개 섹션으로 분리 (각 섹션당 2개씩)
-            List<BookRecommendationCardResponse> authorBooks = allRecommendations.stream().limit(2).toList();
-            List<BookRecommendationCardResponse> genreBooks = allRecommendations.stream().skip(2).limit(2).toList();
-            List<BookRecommendationCardResponse> moodBooks = allRecommendations.stream().skip(4).limit(2).toList();
+            // 장르 섹션 (2-3번 책)
+            List<BookRecommendationCardResponse> genreBooks = popularBooks.stream()
+                    .skip(2)
+                    .limit(2)
+                    .map(book -> buildPopularBookCard(book, "장르"))
+                    .toList();
 
-            log.info("인기 도서 기반 추천 완료 - count: {}", allRecommendations.size());
+            // 분위기 섹션 (4-5번 책)
+            List<BookRecommendationCardResponse> moodBooks = popularBooks.stream()
+                    .skip(4)
+                    .limit(2)
+                    .map(book -> buildPopularBookCard(book, "분위기"))
+                    .toList();
+
+            log.info("인기 도서 기반 추천 완료 - count: {}", popularBooks.size());
 
             return OnboardingBasedRecommendationResponse.builder()
                     .authorSection(OnboardingBasedRecommendationResponse.RecommendationSection.builder()
@@ -568,12 +549,51 @@ public class OnboardingRecommendationService {
     }
 
     /**
+     * 인기 도서 카드 생성 헬퍼 메서드
+     */
+    private BookRecommendationCardResponse buildPopularBookCard(Books book, String title) {
+        String authorInfo = book.getBookAuthors().stream()
+                .filter(ba -> ba.getRole() == com.example.booklog.domain.library.books.entity.AuthorRole.AUTHOR)
+                .map(ba -> ba.getAuthor().getName())
+                .collect(Collectors.joining(", "));
+
+        String author = authorInfo.isEmpty() ? "저자 미상" : authorInfo;
+
+        // GPT를 통한 키워드 분석
+        Map<String, String> keywords = gptService.analyzeBookKeywords(
+                book.getTitle(),
+                author,
+                book.getPublisherName()
+        );
+
+        return BookRecommendationCardResponse.builder()
+                .bookId(book.getId())
+                .title(title)
+                .bookTitle(book.getTitle())
+                .author(author)
+                .publisher(book.getPublisherName())
+                .thumbnailUrl(book.getThumbnailUrl())
+                .recommendationSourceField("popular_ranking")
+                .recommendationSourceValue("최신 인기 도서")
+                // 인기 도서 기반(서재/온보딩 없음): 작가, 장르, 분위기
+                .keyword1(author) // 작가
+                .keyword2(keywords.get("genre") != null ? keywords.get("genre") : "장르 미상") // 장르
+                .keyword3(keywords.get("mood")) // 분위기
+                // 하위 호환성
+                .moodKeyword(keywords.get("mood"))
+                .styleKeyword(keywords.get("style"))
+                .immersionKeyword(keywords.get("immersion"))
+                .build();
+    }
+
+    /**
      * 온보딩 기반 개별 추천 카드 생성
      */
     private BookRecommendationCardResponse generateOnboardingBasedCard(
             RecommendationCriteria criteria,
             String recentSearches,
-            UserReadingProfile profile) {
+            UserReadingProfile profile,
+            String title) {
 
         log.debug("추천 카드 생성 - field: {}, value: {}",
                 criteria.getFieldName(), criteria.getFieldValue());
@@ -617,6 +637,7 @@ public class OnboardingRecommendationService {
         // 5. 추천 카드 DTO 생성
         return BookRecommendationCardResponse.builder()
                 .bookId(bookId)
+                .title(title)
                 .bookTitle(book.getTitle())
                 .author(book.getAuthors() != null && !book.getAuthors().isEmpty()
                         ? String.join(", ", book.getAuthors()) : "저자 미상")
