@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 온보딩 기반 도서 추천 서비스
+ * 온보딩 기반 도서 추천 서비스//햣
  * - 사용자의 온보딩 키워드 + 최근 검색어를 바탕으로 도서 추천
  * - GPT를 통한 작가/장르 추론
  * - Kakao Book API를 통한 도서 검색
