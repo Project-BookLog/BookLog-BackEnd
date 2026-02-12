@@ -9,14 +9,14 @@ import com.example.booklog.global.auth.service.AuthQueryService;
 import com.example.booklog.global.common.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletResponse;
+ // import jakarta.servlet.http.HttpServletResponse; // 카카오 소셜 로그인 주석처리로 미사용
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+// import org.springframework.beans.factory.annotation.Value; // 카카오 소셜 로그인 주석처리로 미사용
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
+// import java.io.IOException; // 카카오 소셜 로그인 주석처리로 미사용
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -27,8 +27,9 @@ public class AuthController {
     private final AuthCommandService authCommandService;
     private final AuthQueryService authQueryService;
 
-    @Value("${SERVER_DOMAIN:http://localhost:8080}")
-    private String serverDomain;
+    // 카카오 소셜 로그인 주석처리로 미사용
+    // @Value("${SERVER_DOMAIN:http://localhost:8080}")
+    // private String serverDomain;
 
     // 회원가입
     @PostMapping("/sign-up")
@@ -66,7 +67,8 @@ public class AuthController {
         );
     }
 
-    // ⚠️ 사용하지 마세요 - Swagger 테스트 전용
+    // ⚠️ 카카오 소셜 로그인 API - 에러로 인해 주석처리
+    /*
     @PostMapping("/kakao/login")
     @Operation(
             summary = "[사용 금지] 카카오 소셜 로그인 테스트",
@@ -109,6 +111,7 @@ public class AuthController {
         String redirectUrl = serverDomain + "/oauth2/authorization/kakao";
         response.sendRedirect(redirectUrl);
     }
+    */
 
     // 로그아웃
     @PostMapping("/logout")
