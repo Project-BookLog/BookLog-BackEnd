@@ -30,7 +30,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
 
         // 1. 공통 및 문서 관련 (인증 불필요)
-        if (path.equals("/") || path.equals("/health") ||
+        if (path.equals("/") || path.equals("/health") || path.equals("/favicon.ico") ||
                 path.startsWith("/swagger-ui/") || path.startsWith("/v3/api-docs")) {
             return true;
         }

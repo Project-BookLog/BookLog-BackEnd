@@ -279,14 +279,26 @@ public class TokenDebugController {
                             resultDiv.style.display = 'none';
                             
                             try {
-                                const response = await fetch('/api/v1/debug/token', {
+                                // 현재 도메인을 사용하여 절대 경로 생성
+                                const apiUrl = window.location.origin + '/api/v1/debug/token';
+                                console.log('🔍 API 호출:', apiUrl);
+                                console.log('🔑 토큰 앞부분:', token.substring(0, 30) + '...');
+                                
+                                const response = await fetch(apiUrl, {
                                     method: 'GET',
                                     headers: {
                                         'Authorization': 'Bearer ' + token
                                     }
                                 });
                                 
+                                console.log('📡 응답 상태:', response.status, response.statusText);
+                                
+                                if (!response.ok) {
+                                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                                }
+                                
                                 const data = await response.json();
+                                console.log('📦 응답 데이터:', data);
                                 
                                 loadingDiv.style.display = 'none';
                                 
@@ -322,11 +334,23 @@ public class TokenDebugController {
                                     `;
                                 }
                             } catch (error) {
+                                console.error('💥 에러 발생:', error);
                                 loadingDiv.style.display = 'none';
                                 resultDiv.className = 'result error';
                                 resultDiv.innerHTML = `
                                     <div class="result-title">❌ 네트워크 에러</div>
-                                    <div class="result-content">${error.message}</div>
+                                    <div class="result-content">에러 타입: ${error.name}
+에러 메시지: ${error.message}
+
+<strong>해결 방법:</strong>
+1. F12를 눌러 개발자 도구 열기
+2. Console 탭에서 에러 확인
+3. Network 탭에서 요청 확인
+
+<strong>가능한 원인:</strong>
+- CORS 에러
+- 네트워크 연결 문제
+- 서버가 응답하지 않음</div>
                                 `;
                             }
                         }

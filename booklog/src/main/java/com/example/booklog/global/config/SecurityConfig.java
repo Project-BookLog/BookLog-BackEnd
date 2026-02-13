@@ -44,6 +44,7 @@ public class SecurityConfig {
     private final String[] allowUris = {
             "/",
             "/health",
+            "/favicon.ico",  // 브라우저 자동 요청
             "/api/v1/auth/**",
             "/auth/kakao/redirect",
             "/auth/callback",
