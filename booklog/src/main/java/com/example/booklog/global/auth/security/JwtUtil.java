@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 public class JwtUtil {
 
@@ -86,8 +88,13 @@ public class JwtUtil {
      */
     public String getEmail(String token) {
         try {
-            return getClaims(token).getPayload().getSubject(); // Parsing해서 Subject 가져오기
+            String email = getClaims(token).getPayload().getSubject(); // Parsing해서 Subject 가져오기
+            log.debug("📧 토큰에서 이메일 추출 성공: {}", email);
+            return email;
         } catch (JwtException e) {
+            log.error("❌ 토큰에서 이메일 추출 실패: type={}, message={}, token={}...",
+                    e.getClass().getSimpleName(), e.getMessage(),
+                    token != null ? token.substring(0, Math.min(token.length(), 20)) : "null");
             return null;
         }
     }
@@ -99,9 +106,29 @@ public class JwtUtil {
      */
     public boolean isValid(String token) {
         try {
-            getClaims(token);
+            Jws<Claims> claims = getClaims(token);
+            Date expiration = claims.getPayload().getExpiration();
+            log.debug("✅ 토큰 검증 성공: subject={}, expiration={}",
+                    claims.getPayload().getSubject(), expiration);
             return true;
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            log.error("❌ 토큰 만료됨: expiration={}, token={}...",
+                    e.getClaims().getExpiration(),
+                    token != null ? token.substring(0, Math.min(token.length(), 20)) : "null");
+            return false;
+        } catch (io.jsonwebtoken.security.SignatureException e) {
+            log.error("❌ 토큰 서명 검증 실패 (잘못된 Secret Key): token={}...",
+                    token != null ? token.substring(0, Math.min(token.length(), 20)) : "null");
+            return false;
+        } catch (io.jsonwebtoken.MalformedJwtException e) {
+            log.error("❌ 토큰 형식이 잘못됨: message={}, token={}...",
+                    e.getMessage(),
+                    token != null ? token.substring(0, Math.min(token.length(), 20)) : "null");
+            return false;
         } catch (JwtException e) {
+            log.error("❌ 토큰 검증 실패: type={}, message={}, token={}...",
+                    e.getClass().getSimpleName(), e.getMessage(),
+                    token != null ? token.substring(0, Math.min(token.length(), 20)) : "null");
             return false;
         }
     }

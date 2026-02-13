@@ -10,6 +10,5 @@ public interface AuthQueryService {
 
     AuthResDTO.LoginDTO refreshToken(AuthReqDTO.@Valid RefreshTokenDTO dto);
 
-    // 카카오 소셜 로그인 - 에러로 인해 주석처리
-    // AuthResDTO.LoginDTO kakaoLogin(AuthReqDTO.@Valid KakaoLoginDTO dto);
+    AuthResDTO.LoginDTO kakaoLogin(AuthReqDTO.@Valid KakaoLoginDTO dto);
 }

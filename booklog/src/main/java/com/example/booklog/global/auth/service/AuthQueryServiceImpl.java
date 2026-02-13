@@ -110,8 +110,6 @@ public class AuthQueryServiceImpl implements AuthQueryService {
         return AuthConverter.toLoginDTO(account, newAccessToken, newRefreshToken, jwtUtil.getAccessExpirationMillis() / 1000);
     }
 
-    // 카카오 소셜 로그인 - 에러로 인해 주석처리
-    /*
     @Override
     @Transactional
     public AuthResDTO.LoginDTO kakaoLogin(AuthReqDTO.@Valid KakaoLoginDTO dto) {
@@ -162,5 +160,4 @@ public class AuthQueryServiceImpl implements AuthQueryService {
         // 7. 응답 DTO 반환
         return AuthConverter.toLoginDTO(account, newAccessToken, newRefreshToken, jwtUtil.getAccessExpirationMillis() / 1000);
     }
-    */
 }

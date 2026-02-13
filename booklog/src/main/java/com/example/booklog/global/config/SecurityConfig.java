@@ -48,6 +48,7 @@ public class SecurityConfig {
             "/auth/kakao/redirect",
             "/auth/callback",
             "/api/v1/books/**",  // 책 조회 API (공개)
+            "/api/v1/debug/**",  // 디버그 API (개발용)
             "/swagger-ui/**",
             "/swagger-resources/**",
             "/v3/api-docs/**",
