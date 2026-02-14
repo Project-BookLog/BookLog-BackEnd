@@ -45,26 +45,28 @@ public class JwtUtil {
         return createToken(user, refreshExpiration);
     }
 
-    // OAuth2 로그인용 AccessToken 생성 (이메일로)
-    public String generateAccessToken(String email) {
+    // OAuth2 로그인용 AccessToken 생성 (이메일 + provider)
+    public String generateAccessToken(String email, String provider) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(email)
-                .claim("role", "ROLE_USER")  // ✅ role claim 추가
+                .claim("role", "ROLE_USER")
                 .claim("email", email)
+                .claim("provider", provider)  // ✅ provider 정보 추가
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(accessExpiration)))
                 .signWith(secretKey)
                 .compact();
     }
 
-    // OAuth2 로그인용 RefreshToken 생성 (이메일로)
-    public String generateRefreshToken(String email) {
+    // OAuth2 로그인용 RefreshToken 생성 (이메일 + provider)
+    public String generateRefreshToken(String email, String provider) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(email)
-                .claim("role", "ROLE_USER")  // ✅ role claim 추가
+                .claim("role", "ROLE_USER")
                 .claim("email", email)
+                .claim("provider", provider)  // ✅ provider 정보 추가
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(refreshExpiration)))
                 .signWith(secretKey)
@@ -95,6 +97,24 @@ public class JwtUtil {
             log.error("❌ 토큰에서 이메일 추출 실패: type={}, message={}, token={}...",
                     e.getClass().getSimpleName(), e.getMessage(),
                     token != null ? token.substring(0, Math.min(token.length(), 20)) : "null");
+            return null;
+        }
+    }
+
+    /** 토큰에서 provider 가져오기
+     *
+     * @param token provider 정보를 추출할 토큰
+     * @return provider (KAKAO, LOCAL, GOOGLE 등)
+     */
+    public String getProvider(String token) {
+        try {
+            Claims claims = getClaims(token).getPayload();
+            String provider = claims.get("provider", String.class);
+            log.debug("🔑 토큰에서 provider 추출 성공: {}", provider);
+            return provider;
+        } catch (JwtException e) {
+            log.error("❌ 토큰에서 provider 추출 실패: type={}, message={}",
+                    e.getClass().getSimpleName(), e.getMessage());
             return null;
         }
     }
@@ -142,10 +162,14 @@ public class JwtUtil {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
+        // provider 정보 추출
+        String provider = user.getAccount().getProvider().name();
+
         return Jwts.builder()
                 .subject(user.getUsername()) // User 이메일을 Subject로
                 .claim("role", authorities)
                 .claim("email", user.getUsername())
+                .claim("provider", provider)  // ✅ provider 정보 추가
                 .issuedAt(Date.from(now)) // 언제 발급한지
                 .expiration(Date.from(now.plus(expiration))) // 언제까지 유효한지
                 .signWith(secretKey) // sign할 Key
