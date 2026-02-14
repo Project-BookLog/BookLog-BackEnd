@@ -123,19 +123,31 @@ public class AuthQueryServiceImpl implements AuthQueryService {
             throw new AuthException(AuthErrorCode.INVALID_TOKEN);
         }
 
-        // 2. 토큰에서 이메일 추출
+        // 2. 토큰에서 이메일과 provider 추출
         String email = jwtUtil.getEmail(jwtToken);
+        String provider = jwtUtil.getProvider(jwtToken);
+
         if (email == null || email.isEmpty()) {
             log.error("JWT 토큰에서 이메일 추출 실패");
             throw new AuthException(AuthErrorCode.INVALID_TOKEN);
         }
 
-        log.info("JWT 토큰 검증 성공: email={}", email);
+        log.info("JWT 토큰 검증 성공: email={}, provider={}", email, provider);
 
-        // 3. 사용자 조회
-        AuthAccounts account = authAccountsRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new AuthException(AuthErrorCode.NOT_FOUND));
+        // 3. 사용자 조회 (provider 포함)
+        AuthAccounts account;
+        if (provider != null && !provider.isEmpty()) {
+            // provider가 있으면 email + provider로 조회
+            account = authAccountsRepository
+                    .findByEmailAndProvider(email, AuthProvider.valueOf(provider))
+                    .orElseThrow(() -> new AuthException(AuthErrorCode.NOT_FOUND));
+        } else {
+            // 기존 토큰 호환성 (provider 없으면 KAKAO로 가정)
+            log.warn("⚠️ 구 버전 토큰 (provider 없음), KAKAO로 가정: email={}", email);
+            account = authAccountsRepository
+                    .findByEmailAndProvider(email, AuthProvider.KAKAO)
+                    .orElseThrow(() -> new AuthException(AuthErrorCode.NOT_FOUND));
+        }
 
         // 4. CustomUserDetails 생성
         CustomUserDetails userDetails = new CustomUserDetails(account);

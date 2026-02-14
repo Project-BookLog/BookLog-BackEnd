@@ -38,13 +38,15 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         try {
             CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
             Long userId = oAuth2User.getUserId();
-            String email = oAuth2User.getAccount().getEmail();
+            AuthAccounts account = oAuth2User.getAccount();
+            String email = account.getEmail();
+            String provider = account.getProvider().name();  // ✅ provider 추출
 
-            log.info("OAuth2 로그인 성공: userId={}, email={}", userId, email);
+            log.info("OAuth2 로그인 성공: userId={}, email={}, provider={}", userId, email, provider);
 
-            // JWT 토큰 생성
-            String accessToken = jwtUtil.generateAccessToken(email);
-            String refreshToken = jwtUtil.generateRefreshToken(email);
+            // JWT 토큰 생성 (email + provider 포함)
+            String accessToken = jwtUtil.generateAccessToken(email, provider);
+            String refreshToken = jwtUtil.generateRefreshToken(email, provider);
 
             // Refresh Token DB에 저장
             refreshTokenRepository.findByEmail(email)

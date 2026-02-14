@@ -40,13 +40,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return true;
         }
 
-        // 3. 디버그 엔드포인트 (개발용)
-        if (path.startsWith("/api/v1/debug/")) {
-            return true;
-        }
-
-        // 4. AuthController 중 '인증이 필요 없는' 특정 경로들
-        // startsWith("/api/v1/auth/")를 지우고 아래처럼 상세하게 적습니다.
+        // 3. AuthController 중 '인증이 필요 없는' 특정 경로들
         return path.equals("/api/v1/auth/sign-up") ||   // 회원가입
                 path.equals("/api/v1/auth/login") ||     // 일반 로그인
                 path.equals("/api/v1/auth/refresh") ||   // 토큰 갱신
@@ -86,8 +80,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             // AccessToken 검증하기: 올바른 토큰이면
             if (jwtUtil.isValid(token)) {
-                // 토큰에서 이메일 추출
+                // 토큰에서 이메일과 provider 추출
                 String email = jwtUtil.getEmail(token);
+                String provider = jwtUtil.getProvider(token);
 
                 if (email == null || email.isEmpty()) {
                     log.error("❌ 토큰에서 이메일 추출 실패: token={}...", token.substring(0, Math.min(token.length(), 20)));
@@ -95,10 +90,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                log.info("✅ 토큰 검증 성공: email={}", email);
+                log.info("✅ 토큰 검증 성공: email={}, provider={}", email, provider);
 
-                // 인증 객체 생성: 이메일로 찾아온 뒤, 인증 객체 생성
-                UserDetails user = customUserDetailsService.loadUserByUsername(email);
+                // 인증 객체 생성
+                UserDetails user;
+
+                if (provider != null && !provider.isEmpty()) {
+                    // ✅ 새 토큰: email + provider로 조회
+                    log.debug("🔍 DB에서 사용자 조회 시도: email={}, provider={}", email, provider);
+                    String username = email + ":" + provider;
+                    user = customUserDetailsService.loadUserByUsername(username);
+                    log.info("✅ DB에서 사용자 조회 성공: email={}, provider={}", email, provider);
+                } else {
+                    // ⚠️ 기존 토큰: email만으로 조회 (하위 호환성)
+                    log.warn("⚠️ 구 버전 토큰 감지 (provider 없음): email={}", email);
+                    log.debug("🔍 DB에서 사용자 조회 시도 (이메일만): email={}", email);
+                    user = customUserDetailsService.loadUserByUsername(email + ":LOCAL");  // 기본값 LOCAL
+                    log.info("✅ DB에서 사용자 조회 성공 (기본 LOCAL): email={}", email);
+                }
+
                 Authentication auth = new UsernamePasswordAuthenticationToken(
                         user,
                         null,
@@ -107,7 +117,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 // 인증 완료 후 SecurityContextHolder에 넣기
                 SecurityContextHolder.getContext().setAuthentication(auth);
-                log.info("✅ SecurityContext 인증 설정 완료: email={}, authorities={}", email, user.getAuthorities());
+                log.info("✅ SecurityContext 인증 설정 완료: email={}, provider={}, authorities={}",
+                        email, provider, user.getAuthorities());
             } else {
                 log.error("❌ 토큰 검증 실패 (유효하지 않은 토큰): path={}, token={}...",
                         requestPath, token.substring(0, Math.min(token.length(), 20)));
@@ -116,7 +127,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (Exception e) {
             // 서버 로그(web.stdout.log)에서 실제 에러 원인을 바로 확인할 수 있습니다.
-            log.error("💥 JWT 필터 에러 발생: path={}, message={}", requestPath, e.getMessage(), e);
+            log.error("💥 JWT 필터 에러 발생: path={}, exceptionType={}, message={}",
+                    requestPath, e.getClass().getSimpleName(), e.getMessage());
+
+            // AuthException인 경우 더 자세히 로그
+            if (e.getClass().getSimpleName().contains("Auth")) {
+                log.error("🔍 인증 관련 에러 상세: ", e);
+            }
 
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
